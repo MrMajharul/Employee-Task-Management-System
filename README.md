@@ -86,7 +86,7 @@ Before running this application, make sure you have the following installed:
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd Employee-Task-Management-System-using-PHP-and-MySQL
+cd Employee-Task-Management-System
 ```
 
 ### 2. Install Dependencies
