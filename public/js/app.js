@@ -35,7 +35,9 @@ function getStatusBadge(status) {
     const statusMap = {
         'pending': '<span class="status-badge status-pending">Pending</span>',
         'in_progress': '<span class="status-badge status-in_progress">In Progress</span>',
-        'completed': '<span class="status-badge status-completed">Completed</span>'
+        'completed': '<span class="status-badge status-completed">Completed</span>',
+        'cancelled': '<span class="status-badge status-cancelled">Cancelled</span>',
+        'on_hold': '<span class="status-badge status-on_hold">On Hold</span>'
     };
     return statusMap[status] || statusMap['pending'];
 }
@@ -359,11 +361,34 @@ async function deleteTask(id) {
 
 function editTask(id) {
     // Load task data and populate form
-    // This would require an additional API call to get task details
-    // For now, we'll just show the modal
-    document.getElementById('taskModalTitle').textContent = 'Edit Task';
-    document.getElementById('taskForm').dataset.taskId = id;
-    showModal('taskModal');
+    loadTaskData(id).then(() => {
+        document.getElementById('taskModalTitle').textContent = 'Edit Task';
+        document.getElementById('taskForm').dataset.taskId = id;
+        showModal('taskModal');
+    }).catch(error => {
+        showAlert('Failed to load task data', 'danger');
+        console.error('Error loading task data:', error);
+    });
+}
+
+// Load task data for editing
+async function loadTaskData(taskId) {
+    try {
+        const task = await apiCall(`/tasks/${taskId}`);
+        
+        // Populate form fields
+        document.getElementById('taskTitle').value = task.title || '';
+        document.getElementById('taskDescription').value = task.description || '';
+        document.getElementById('taskDueDate').value = task.due_date ? task.due_date.split('T')[0] : '';
+        document.getElementById('taskStatus').value = task.status || 'pending';
+        
+        // Wait for users to be loaded in dropdown, then set the assigned user
+        await populateAssignedToDropdown();
+        document.getElementById('taskAssignedTo').value = task.assigned_to || '';
+        
+    } catch (error) {
+        throw new Error('Failed to load task data: ' + error.message);
+    }
 }
 
 // Users functions
@@ -479,6 +504,39 @@ async function updateProfile(profileData) {
 function showModal(modalId) {
     const modal = document.getElementById(modalId);
     modal.classList.add('show');
+    
+    // Populate dropdowns when opening task modal
+    if (modalId === 'taskModal') {
+        populateAssignedToDropdown();
+    }
+}
+
+// Populate the "Assigned To" dropdown with users
+async function populateAssignedToDropdown() {
+    try {
+        const users = await apiCall('/users');
+        const select = document.getElementById('taskAssignedTo');
+        
+        // Clear existing options
+        select.innerHTML = '';
+        
+        // Add default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select a user...';
+        select.appendChild(defaultOption);
+        
+        // Add user options
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.full_name} (${user.username})`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load users for dropdown:', error);
+        showAlert('Failed to load users for assignment', 'danger');
+    }
 }
 
 function closeModal(modalId) {
@@ -589,6 +647,17 @@ function setupEventListeners() {
         });
     });
     
+    // Cancel buttons with data-dismiss="modal"
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(cancelBtn => {
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modal = cancelBtn.closest('.modal');
+            if (modal) {
+                closeModal(modal.id);
+            }
+        });
+    });
+    
     // Task form
     document.getElementById('taskForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -646,6 +715,10 @@ function setupEventListeners() {
     document.getElementById('addTaskBtn').addEventListener('click', () => {
         document.getElementById('taskModalTitle').textContent = 'Add Task';
         delete document.getElementById('taskForm').dataset.taskId;
+        
+        // Clear form for new task
+        document.getElementById('taskForm').reset();
+        
         showModal('taskModal');
     });
     

@@ -11,48 +11,72 @@
 </head>
 <body>
     <div id="app">
-        <!-- Login Form -->
-        <div id="loginForm" class="login-container">
-            <div class="login-card">
-                <div class="login-header">
-                    <h2><i class="fas fa-tasks"></i> Task Management System</h2>
-                    <p>Sign in to your account</p>
+        <!-- Modern Login Form -->
+        <div id="loginForm" class="modern-login-container">
+            <div class="login-background">
+                <div class="login-overlay"></div>
+                <div class="floating-shapes">
+                    <div class="shape shape-1"></div>
+                    <div class="shape shape-2"></div>
+                    <div class="shape shape-3"></div>
+                    <div class="shape shape-4"></div>
                 </div>
-                <form id="loginFormElement">
-                    <div class="form-group">
-                        <label for="username">Username</label>
-                        <input type="text" id="username" name="username" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" name="password" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block login-btn">
-                        <i class="fas fa-sign-in-alt"></i> Sign In
+            </div>
+            
+            <div class="modern-login-card">
+                <div class="login-card-header">
+                    <h1 class="welcome-title">Welcome back</h1>
+                    <p class="welcome-subtitle">Please enter your details to sign in</p>
+                </div>
+                
+                <!-- Social Login Buttons -->
+                <div class="social-login-section">
+                    <button class="social-btn google-btn" type="button">
+                        <i class="fab fa-google"></i>
                     </button>
+                    <button class="social-btn apple-btn" type="button">
+                        <i class="fab fa-apple"></i>
+                    </button>
+                    <button class="social-btn facebook-btn" type="button">
+                        <i class="fab fa-facebook"></i>
+                    </button>
+                </div>
+                
+                <div class="divider-section">
+                    <span class="divider-text">OR</span>
+                </div>
+                
+                <!-- Login Form -->
+                <form id="loginFormElement" class="modern-login-form">
+                    <div class="input-group">
+                        <label for="username" class="input-label">Your Email Address OR Username</label>
+                        <input type="text" id="username" name="username" class="modern-input" placeholder="Your Email Address OR Username" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="password" class="input-label">Password</label>
+                        <input type="password" id="password" name="password" class="modern-input" placeholder="••••••••••" required>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="remember-me">
+                            <input type="checkbox" class="remember-checkbox">
+                            <span class="checkmark"></span>
+                            Remember me
+                        </label>
+                        <a href="#" class="forgot-password">Forgot password?</a>
+                    </div>
+                    
+                    <button type="submit" class="modern-signin-btn">
+                        Sign in
+                    </button>
+                    
+                    <div class="signup-prompt">
+                        Don't have an account? <a href="#" class="signup-link">Sign up</a>
+                    </div>
+                    
+                    <div id="loginError" class="modern-alert error-alert" style="display: none;"></div>
                 </form>
-                
-                <!-- Divider -->
-                <div class="login-divider">
-                    <span>or</span>
-                </div>
-                
-                <!-- Google Sign In Button -->
-                <div id="g_id_onload"
-                     data-client_id="YOUR_GOOGLE_CLIENT_ID"
-                     data-callback="handleGoogleSignIn"
-                     data-auto_prompt="false">
-                </div>
-                <div class="g_id_signin"
-                     data-type="standard"
-                     data-size="large"
-                     data-theme="outline"
-                     data-text="sign_in_with"
-                     data-shape="rectangular"
-                     data-logo_alignment="left">
-                </div>
-                
-                <div id="loginError" class="alert alert-danger mt-3" style="display: none;"></div>
             </div>
         </div>
 
@@ -316,6 +340,8 @@
                                 <option value="pending">Pending</option>
                                 <option value="in_progress">In Progress</option>
                                 <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="on_hold">On Hold</option>
                             </select>
                         </div>
                     </div>

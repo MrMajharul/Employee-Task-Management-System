@@ -372,13 +372,68 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
     });
 });
 
+// Get single task by ID
+app.get('/api/tasks/:id', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const userRole = req.user.role;
+    
+    let query;
+    let params;
+    
+    if (userRole === 'admin' || userRole === 'manager') {
+        // Admin/Manager can see any task with full details
+        query = `
+            SELECT 
+                t.id, t.title, t.description, t.status, t.priority, t.due_date,
+                t.progress_percentage, t.estimated_hours, t.actual_hours,
+                t.assigned_to, t.assigned_by, t.start_date, t.completion_date,
+                assigned_user.full_name as assigned_to_name,
+                assigned_user.email as assigned_to_email,
+                assigner.full_name as assigned_by_name,
+                t.created_at, t.updated_at
+            FROM tasks t
+            LEFT JOIN users assigned_user ON t.assigned_to = assigned_user.id
+            LEFT JOIN users assigner ON t.assigned_by = assigner.id
+            WHERE t.id = ?
+        `;
+        params = [id];
+    } else {
+        // Employee can only see their own assigned tasks
+        query = `
+            SELECT 
+                t.id, t.title, t.description, t.status, t.priority, t.due_date,
+                t.progress_percentage, t.estimated_hours, t.actual_hours,
+                t.assigned_to, t.assigned_by, t.start_date, t.completion_date,
+                assigner.full_name as assigned_by_name,
+                t.created_at, t.updated_at
+            FROM tasks t
+            LEFT JOIN users assigner ON t.assigned_by = assigner.id
+            WHERE t.id = ? AND t.assigned_to = ?
+        `;
+        params = [id, req.user.id];
+    }
+    
+    db.query(query, params, (err, results) => {
+        if (err) {
+            console.error('Task query error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Task not found or access denied' });
+        }
+        
+        res.json(results[0]);
+    });
+});
+
 // Get all users (admin only)
 app.get('/api/users', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied' });
     }
     
-    const query = 'SELECT * FROM users WHERE role = "employee"';
+    const query = 'SELECT id, full_name, username, email, role, created_at FROM users ORDER BY full_name';
     db.query(query, (err, results) => {
         if (err) {
             return res.status(500).json({ error: 'Database error' });
