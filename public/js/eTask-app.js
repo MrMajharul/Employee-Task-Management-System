@@ -1,4 +1,4 @@
-// Bitrix24-style Task Management System
+// B.js eTask Management System
 class TaskFlowApp {
     constructor() {
         this.currentUser = null;
@@ -955,63 +955,24 @@ class TaskFlowApp {
     }
 
     showInviteModal() {
-        const modal = document.createElement('div');
-        modal.className = 'modal show';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Invite Team Members</h3>
-                    <button class="close-modal">&times;</button>
-                </div>
-                <div class="modal-body" style="padding: 24px;">
-                    <div class="form-group">
-                        <label for="inviteEmail">Email Address</label>
-                        <input type="email" id="inviteEmail" placeholder="Enter email address" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="inviteRole">Role</label>
-                        <select id="inviteRole">
-                            <option value="employee">Employee</option>
-                            <option value="manager">Manager</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="inviteMessage">Personal Message (Optional)</label>
-                        <textarea id="inviteMessage" rows="3" placeholder="Add a personal message..."></textarea>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn-cancel">Cancel</button>
-                        <button type="button" class="btn-save" onclick="app.sendInvitation()">Send Invitation</button>
-                    </div>
-                </div>
-            </div>
-        `;
+        this.showModal('inviteModal');
         
-        document.body.appendChild(modal);
-        
-        // Close modal functionality
-        modal.querySelector('.close-modal').addEventListener('click', () => {
-            modal.remove();
-        });
-        
-        modal.querySelector('.btn-cancel').addEventListener('click', () => {
-            modal.remove();
-        });
+        // Setup invite form submission
+        const inviteForm = document.getElementById('inviteForm');
+        if (inviteForm) {
+            inviteForm.addEventListener('submit', (e) => this.handleInviteSubmit(e));
+        }
     }
 
-    async sendInvitation() {
+    async handleInviteSubmit(e) {
+        e.preventDefault();
+        
         const email = document.getElementById('inviteEmail').value;
         const role = document.getElementById('inviteRole').value;
         const message = document.getElementById('inviteMessage').value;
-        
-        if (!email) {
-            this.showNotification('Please enter an email address', 'error');
-            return;
-        }
-        
+
         try {
-            // For now, just create a user account
+            // For now, create a user account with temporary password
             const userData = {
                 full_name: email.split('@')[0],
                 email: email,
@@ -1024,85 +985,325 @@ class TaskFlowApp {
                 method: 'POST',
                 body: JSON.stringify(userData)
             });
-            
-            this.showNotification(`Invitation sent to ${email}!`, 'success');
-            document.querySelector('.modal.show').remove();
+
+            this.showNotification('Invitation sent successfully!', 'success');
+            this.closeModal();
+            document.getElementById('inviteForm').reset();
             await this.loadUsers(); // Refresh user list
-            
         } catch (error) {
-            console.error('Error sending invitation:', error);
-            this.showNotification('Failed to send invitation: ' + error.message, 'error');
+            this.showNotification(error.message, 'error');
         }
     }
 
     showSettingsModal() {
-        const modal = document.createElement('div');
-        modal.className = 'modal show';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Settings</h3>
-                    <button class="close-modal">&times;</button>
-                </div>
-                <div class="modal-body" style="padding: 24px;">
-                    <div class="settings-section">
-                        <h4>Profile Settings</h4>
-                        <div class="form-group">
-                            <label for="settingsFullName">Full Name</label>
-                            <input type="text" id="settingsFullName" value="${this.currentUser?.full_name || ''}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="settingsEmail">Email</label>
-                            <input type="email" id="settingsEmail" value="${this.currentUser?.email || ''}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="settingsPassword">New Password (leave blank to keep current)</label>
-                            <input type="password" id="settingsPassword" placeholder="Enter new password">
-                        </div>
-                    </div>
-                    
-                    <div class="settings-section" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-                        <h4>Preferences</h4>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="emailNotifications" checked> 
-                                Email Notifications
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="taskReminders" checked> 
-                                Task Deadline Reminders
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label for="defaultView">Default View</label>
-                            <select id="defaultView">
-                                <option value="list">List View</option>
-                                <option value="kanban">Kanban Board</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="modal-actions" style="margin-top: 30px;">
-                        <button type="button" class="btn-cancel">Cancel</button>
-                        <button type="button" class="btn-save" onclick="app.saveSettings()">Save Settings</button>
-                        <button type="button" style="background: #e74c3c; color: white; border: none; padding: 12px 24px; border-radius: 8px; margin-left: 10px;" onclick="app.logout()">Logout</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Close modal functionality
-        modal.querySelector('.close-modal').addEventListener('click', () => {
-            modal.remove();
+        this.showModal('settingsModal');
+        this.loadUserProfile();
+        this.setupSettingsEventListeners();
+    }
+
+    async loadUserProfile() {
+        try {
+            if (this.currentUser) {
+                document.getElementById('profileFullName').value = this.currentUser.full_name || '';
+                document.getElementById('profileUsername').value = this.currentUser.username || '';
+                document.getElementById('profileEmail').value = this.currentUser.email || '';
+                document.getElementById('profilePhone').value = this.currentUser.phone || '';
+                document.getElementById('profileRole').value = this.currentUser.role || '';
+                document.getElementById('profileDepartment').value = this.currentUser.department || '';
+                document.getElementById('profileBio').value = this.currentUser.bio || '';
+                
+                // Update profile photo if available
+                if (this.currentUser.profile_photo) {
+                    document.getElementById('currentProfilePhoto').src = this.currentUser.profile_photo;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading user profile:', error);
+        }
+    }
+
+    setupSettingsEventListeners() {
+        // Settings navigation
+        document.querySelectorAll('.settings-nav-item').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const tab = e.currentTarget.dataset.tab;
+                this.switchSettingsTab(tab);
+            });
         });
-        
-        modal.querySelector('.btn-cancel').addEventListener('click', () => {
-            modal.remove();
+
+        // Profile form submission
+        const profileForm = document.getElementById('profileForm');
+        if (profileForm) {
+            profileForm.addEventListener('submit', (e) => this.handleProfileUpdate(e));
+        }
+
+        // Password form submission
+        const passwordForm = document.getElementById('passwordForm');
+        if (passwordForm) {
+            passwordForm.addEventListener('submit', (e) => this.handlePasswordChange(e));
+        }
+
+        // Profile photo upload
+        const photoUpload = document.getElementById('photoUpload');
+        if (photoUpload) {
+            photoUpload.addEventListener('change', (e) => this.handlePhotoUpload(e));
+        }
+
+        // Photo upload button
+        const currentPhoto = document.querySelector('.current-photo');
+        if (currentPhoto) {
+            currentPhoto.addEventListener('click', () => {
+                document.getElementById('photoUpload').click();
+            });
+        }
+
+        // Remove photo button
+        const removePhotoBtn = document.querySelector('.btn-photo-remove');
+        if (removePhotoBtn) {
+            removePhotoBtn.addEventListener('click', () => this.removeProfilePhoto());
+        }
+
+        // 2FA enable button
+        const enable2faBtn = document.getElementById('enable2fa');
+        if (enable2faBtn) {
+            enable2faBtn.addEventListener('click', () => this.enable2FA());
+        }
+
+        // Logout all sessions
+        const logoutAllBtn = document.getElementById('logoutAllSessions');
+        if (logoutAllBtn) {
+            logoutAllBtn.addEventListener('click', () => this.logoutAllSessions());
+        }
+
+        // Export data
+        const exportBtn = document.getElementById('exportData');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportUserData());
+        }
+
+        // Delete account
+        const deleteBtn = document.getElementById('deleteAccount');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => this.deleteAccount());
+        }
+    }
+
+    switchSettingsTab(tabName) {
+        // Update navigation
+        document.querySelectorAll('.settings-nav-item').forEach(item => {
+            item.classList.remove('active');
         });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Update panels
+        document.querySelectorAll('.settings-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        document.getElementById(`${tabName}Settings`).classList.add('active');
+    }
+
+    async handleProfileUpdate(e) {
+        e.preventDefault();
+        
+        const profileData = {
+            full_name: document.getElementById('profileFullName').value,
+            username: document.getElementById('profileUsername').value,
+            email: document.getElementById('profileEmail').value,
+            phone: document.getElementById('profilePhone').value,
+            role: document.getElementById('profileRole').value,
+            department: document.getElementById('profileDepartment').value,
+            bio: document.getElementById('profileBio').value
+        };
+
+        try {
+            const response = await this.apiCall('/user/profile', {
+                method: 'PUT',
+                body: JSON.stringify(profileData)
+            });
+
+            this.currentUser = { ...this.currentUser, ...profileData };
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
+            
+            // Update UI
+            document.getElementById('userName').textContent = profileData.full_name;
+            
+            this.showNotification('Profile updated successfully!', 'success');
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    async handlePasswordChange(e) {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmNewPassword').value;
+
+        if (newPassword !== confirmPassword) {
+            this.showNotification('New passwords do not match', 'error');
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            this.showNotification('Password must be at least 8 characters long', 'error');
+            return;
+        }
+
+        try {
+            await this.apiCall('/user/change-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                    currentPassword,
+                    newPassword
+                })
+            });
+
+            document.getElementById('passwordForm').reset();
+            this.showNotification('Password changed successfully!', 'success');
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    async handlePhotoUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please select a valid image file', 'error');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            this.showNotification('Image size must be less than 5MB', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('profilePhoto', file);
+
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/user/profile-photo`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to upload photo');
+            }
+
+            // Update UI
+            document.getElementById('currentProfilePhoto').src = data.photoUrl;
+            document.querySelector('.user-avatar').src = data.photoUrl;
+            
+            this.currentUser.profile_photo = data.photoUrl;
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
+
+            this.showNotification('Profile photo updated successfully!', 'success');
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    async removeProfilePhoto() {
+        try {
+            await this.apiCall('/user/profile-photo', {
+                method: 'DELETE'
+            });
+
+            // Reset to default avatar
+            const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser.full_name)}&background=667eea&color=fff`;
+            document.getElementById('currentProfilePhoto').src = defaultAvatar;
+            document.querySelector('.user-avatar').src = defaultAvatar;
+            
+            this.currentUser.profile_photo = null;
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
+
+            this.showNotification('Profile photo removed successfully!', 'success');
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    enable2FA() {
+        this.showNotification('2FA setup will be available in the next update', 'info');
+    }
+
+    async logoutAllSessions() {
+        if (!confirm('Are you sure you want to logout all sessions? This will require you to login again.')) {
+            return;
+        }
+
+        try {
+            await this.apiCall('/user/logout-all-sessions', {
+                method: 'POST'
+            });
+
+            this.showNotification('All sessions logged out successfully!', 'success');
+            setTimeout(() => this.logout(), 2000);
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    async exportUserData() {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/user/export-data`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.authToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to export data');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `eTask-data-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            this.showNotification('Data exported successfully!', 'success');
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    async deleteAccount() {
+        const confirmation = prompt('Type "DELETE" to confirm account deletion:');
+        
+        if (confirmation !== 'DELETE') {
+            this.showNotification('Account deletion cancelled', 'info');
+            return;
+        }
+
+        try {
+            await this.apiCall('/user/delete-account', {
+                method: 'DELETE'
+            });
+
+            this.showNotification('Account deleted successfully', 'success');
+            setTimeout(() => {
+                localStorage.clear();
+                window.location.reload();
+            }, 2000);
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        }
     }
 
     async saveSettings() {
