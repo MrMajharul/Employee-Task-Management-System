@@ -135,6 +135,18 @@
                                 <span>Tasks</span>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="#" data-page="kanban" class="nav-link">
+                                <i class="fas fa-columns"></i>
+                                <span>Kanban Board</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#" data-page="analytics" class="nav-link">
+                                <i class="fas fa-chart-pie"></i>
+                                <span>Analytics</span>
+                            </a>
+                        </li>
                         <li class="nav-item admin-only" style="display: none;">
                             <a href="#" data-page="users" class="nav-link">
                                 <i class="fas fa-users"></i>
@@ -255,6 +267,150 @@
                                 <!-- Tasks will be loaded here -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Kanban Board Page -->
+                <div id="kanbanPage" class="page">
+                    <div class="page-header">
+                        <h2>Kanban Board</h2>
+                        <div class="board-controls">
+                            <button id="addTaskFromKanban" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Task
+                            </button>
+                            <div class="view-options">
+                                <button class="btn btn-outline filter-btn" data-filter="all">All</button>
+                                <button class="btn btn-outline filter-btn" data-filter="my">My Tasks</button>
+                                <button class="btn btn-outline filter-btn" data-filter="overdue">Overdue</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kanban-board" id="kanbanBoard">
+                        <div class="kanban-column" data-status="pending">
+                            <div class="column-header">
+                                <h3><i class="fas fa-clock"></i> To Do</h3>
+                                <span class="task-count" id="pendingKanbanCount">0</span>
+                            </div>
+                            <div class="column-content" id="pendingColumn">
+                                <!-- Pending tasks will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="kanban-column" data-status="in_progress">
+                            <div class="column-header">
+                                <h3><i class="fas fa-spinner"></i> In Progress</h3>
+                                <span class="task-count" id="inProgressKanbanCount">0</span>
+                            </div>
+                            <div class="column-content" id="inProgressColumn">
+                                <!-- In progress tasks will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="kanban-column" data-status="completed">
+                            <div class="column-header">
+                                <h3><i class="fas fa-check"></i> Completed</h3>
+                                <span class="task-count" id="completedKanbanCount">0</span>
+                            </div>
+                            <div class="column-content" id="completedColumn">
+                                <!-- Completed tasks will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="kanban-column" data-status="on_hold">
+                            <div class="column-header">
+                                <h3><i class="fas fa-pause"></i> On Hold</h3>
+                                <span class="task-count" id="onHoldKanbanCount">0</span>
+                            </div>
+                            <div class="column-content" id="onHoldColumn">
+                                <!-- On hold tasks will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Page -->
+                <div id="analyticsPage" class="page">
+                    <div class="page-header">
+                        <h2>Analytics & Reports</h2>
+                        <div class="analytics-filters">
+                            <select id="analyticsTimeRange" class="form-control">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30" selected>Last 30 Days</option>
+                                <option value="90">Last 90 Days</option>
+                                <option value="365">Last Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="analytics-dashboard">
+                        <div class="analytics-grid">
+                            <div class="analytics-card">
+                                <div class="card-header">
+                                    <h3>Task Completion Rate</h3>
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="card-body">
+                                    <div class="metric-large" id="completionRate">0%</div>
+                                    <div class="metric-trend" id="completionTrend">
+                                        <span class="trend-indicator">↗</span>
+                                        <span class="trend-text">+5% from last period</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="card-header">
+                                    <h3>Average Task Duration</h3>
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="card-body">
+                                    <div class="metric-large" id="avgDuration">0 days</div>
+                                    <div class="metric-trend" id="durationTrend">
+                                        <span class="trend-indicator">↘</span>
+                                        <span class="trend-text">-2 days from last period</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="card-header">
+                                    <h3>Team Productivity</h3>
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="card-body">
+                                    <div class="metric-large" id="teamProductivity">85%</div>
+                                    <div class="metric-trend" id="productivityTrend">
+                                        <span class="trend-indicator">↗</span>
+                                        <span class="trend-text">+12% from last period</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analytics-card">
+                                <div class="card-header">
+                                    <h3>Overdue Tasks</h3>
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div class="card-body">
+                                    <div class="metric-large" id="overdueTasksAnalytics">0</div>
+                                    <div class="metric-trend" id="overdueTrend">
+                                        <span class="trend-indicator">↘</span>
+                                        <span class="trend-text">-3 from last period</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="charts-section">
+                            <div class="chart-container">
+                                <h3>Task Status Distribution</h3>
+                                <canvas id="statusChart" width="400" height="200"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <h3>Task Completion Trends</h3>
+                                <canvas id="trendsChart" width="400" height="200"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="team-performance">
+                            <h3>Team Performance</h3>
+                            <div class="performance-table" id="teamPerformanceTable">
+                                <!-- Team performance data will be loaded here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 

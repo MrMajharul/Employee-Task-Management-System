@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow 24 - Modern Task Management</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="css/bitrix-style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Modern Login Form -->
+    <div id="loginForm" class="login-container">
+        <div class="login-content">
+            <div class="login-header">
+                <h1>TaskFlow <span class="version">24</span></h1>
+                <p>Professional Task Management System</p>
+            </div>
+            
+            <form id="loginFormElement" class="login-form">
+                <div class="form-group">
+                    <input type="text" id="username" placeholder="Username" required>
+                    <i class="fas fa-user"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="password" placeholder="Password" required>
+                    <i class="fas fa-lock"></i>
+                </div>
+                
+                <button type="submit" class="login-btn">Sign In</button>
+                
+                <div class="social-login">
+                    <p>Or continue with</p>
+                    <div class="social-buttons">
+                        <button type="button" class="social-btn google">
+                            <i class="fab fa-google"></i>
+                            Google
+                        </button>
+                        <button type="button" class="social-btn microsoft">
+                            <i class="fab fa-microsoft"></i>
+                            Microsoft
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="login-footer">
+                    <a href="#" id="showRegisterForm">Create Account</a>
+                    <a href="#">Forgot Password?</a>
+                </div>
+            </form>
+            
+            <div id="loginError" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" class="login-container" style="display: none;">
+        <div class="login-content">
+            <div class="login-header">
+                <h1>Create Account</h1>
+                <p>Join TaskFlow 24 Today</p>
+            </div>
+            
+            <form id="registerFormElement" class="login-form">
+                <div class="form-group">
+                    <input type="text" id="registerFullName" placeholder="Full Name" required>
+                    <i class="fas fa-user"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="email" id="registerEmail" placeholder="Email" required>
+                    <i class="fas fa-envelope"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="text" id="registerUsername" placeholder="Username" required>
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="registerPassword" placeholder="Password" required>
+                    <i class="fas fa-lock"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+                    <i class="fas fa-check"></i>
+                </div>
+                
+                <div class="form-group">
+                    <select id="registerRole" required>
+                        <option value="">Select Role</option>
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="login-btn">Create Account</button>
+                
+                <div class="login-footer">
+                    <a href="#" id="showLoginForm">Already have an account?</a>
+                </div>
+            </form>
+            
+            <div id="registerError" class="error-message" style="display: none;"></div>
+            <div id="registerSuccess" class="success-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="dashboard-container" style="display: none;">
+        <!-- Modern Header like Bitrix24 -->
+        <header class="bitrix-header">
+            <div class="header-left">
+                <div class="logo-section">
+                    <button class="sidebar-toggle" id="sidebarToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="logo-text">TaskFlow <span class="version">24</span></h2>
+                </div>
+                
+                <nav class="main-navigation">
+                    <a href="#" class="nav-tab active" onclick="showMainView('tasks')">
+                        <i class="fas fa-tasks"></i> Tasks
+                    </a>
+                    <a href="#" class="nav-tab" onclick="showMainView('projects')">
+                        <i class="fas fa-layer-group"></i> Projects
+                    </a>
+                    <a href="#" class="nav-tab" onclick="showMainView('scrum')">
+                        <i class="fas fa-users-cog"></i> Scrum
+                    </a>
+                    <a href="#" class="nav-tab" onclick="showMainView('assigned')">
+                        <i class="fas fa-user-check"></i> Set by me
+                    </a>
+                    <a href="#" class="nav-tab new-feature" onclick="showMainView('efficiency')">
+                        <i class="fas fa-chart-line"></i> Efficiency
+                        <span class="new-badge">NEW</span>
+                    </a>
+                    <a href="#" class="nav-tab" onclick="showMainView('supervising')">
+                        <i class="fas fa-eye"></i> Supervising
+                    </a>
+                </nav>
+            </div>
+            
+            <div class="header-right">
+                <div class="search-global">
+                    <input type="text" placeholder="Search everything..." class="global-search">
+                    <i class="fas fa-search"></i>
+                </div>
+                
+                <div class="header-time">12:53 <small>WORKING</small></div>
+                
+                <div class="user-section">
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=Admin+User&background=667eea&color=fff" alt="User" class="user-avatar">
+                        <span class="user-name" id="userName">Admin User</span>
+                    </div>
+                    
+                    <button class="upgrade-btn">
+                        <i class="fas fa-crown"></i> Upgrade
+                    </button>
+                    
+                    <button class="invite-btn">
+                        <i class="fas fa-user-plus"></i> Invite
+                    </button>
+                    
+                    <div class="notification-section">
+                        <button class="notification-btn" id="notificationBtn">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-count">3</span>
+                        </button>
+                    </div>
+                    
+                    <button class="settings-btn">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tasks Section (Main Content Area) -->
+        <div id="tasksView" class="main-view active">
+            <div class="task-header">
+                <div class="task-title-section">
+                    <h2 class="section-title">
+                        Tasks 
+                        <i class="fas fa-chevron-down"></i>
+                        <span class="task-counter" id="taskCounter">0</span>
+                    </h2>
+                    <div class="task-actions">
+                        <button class="action-btn new-task-btn" onclick="openNewTaskModal()">
+                            <i class="fas fa-plus"></i> NEW TASK
+                        </button>
+                        <button class="action-btn in-progress-btn">
+                            <i class="fas fa-play"></i> In progress
+                            <span class="count-badge" id="inProgressCount">0</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="search-section">
+                    <div class="search-container">
+                        <input type="text" class="search-input" placeholder="Search tasks..." id="taskSearch">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <button class="settings-btn"><i class="fas fa-cog"></i></button>
+                    <div class="team-avatars" id="teamAvatars">
+                        <!-- Team member avatars will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- View Toggle Filters -->
+            <div class="view-controls">
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="switchView('list')">
+                        <i class="fas fa-list"></i> List
+                    </button>
+                    <button class="filter-tab" onclick="switchView('kanban')">
+                        <i class="fas fa-columns"></i> Planner
+                    </button>
+                    <button class="filter-tab" onclick="switchView('gantt')">
+                        <i class="fas fa-chart-gantt"></i> Gantt
+                    </button>
+                    <button class="filter-tab" onclick="switchView('deadline')">
+                        <i class="fas fa-calendar-alt"></i> Deadline
+                    </button>
+                    <button class="filter-tab" onclick="switchView('calendar')">
+                        <i class="fas fa-calendar"></i> Calendar
+                    </button>
+                    <button class="filter-tab overdue" onclick="filterBy('overdue')">
+                        <i class="fas fa-clock"></i> Overdue
+                        <span class="count-badge" id="overdueCount">0</span>
+                    </button>
+                    <button class="filter-tab comments" onclick="filterBy('comments')">
+                        <i class="fas fa-comments"></i> Comments
+                    </button>
+                    <button class="filter-tab mark-read" onclick="markAllRead()">
+                        Mark all as read
+                    </button>
+                    <button class="filter-tab more">
+                        More <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                
+                <div class="filter-actions">
+                    <button class="knowledge-base">
+                        <i class="fas fa-book"></i> Knowledge base
+                    </button>
+                    <button class="automation-rules">
+                        <i class="fas fa-robot"></i> Automation rules
+                    </button>
+                </div>
+            </div>
+
+            <!-- List View -->
+            <div id="listView" class="content-view active">
+                <div class="task-list-container">
+                    <div class="task-item" id="taskList">
+                        <!-- Tasks will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanban View -->
+            <div id="kanbanView" class="content-view">
+                <div class="kanban-container">
+                    <div class="kanban-columns">
+                        <!-- Overdue Column -->
+                        <div class="kanban-column overdue" data-status="overdue">
+                            <div class="column-header">
+                                <h3><i class="fas fa-exclamation-triangle"></i> Overdue</h3>
+                                <span class="task-count">0</span>
+                            </div>
+                            <div class="column-content" ondrop="drop(event)" ondragover="allowDrop(event)">
+                                <!-- Overdue tasks -->
+                            </div>
+                        </div>
+
+                        <!-- New Tasks Column -->
+                        <div class="kanban-column new-tasks" data-status="pending">
+                            <div class="column-header">
+                                <h3><i class="fas fa-inbox"></i> New tasks</h3>
+                                <span class="task-count">0</span>
+                            </div>
+                            <div class="column-content" ondrop="drop(event)" ondragover="allowDrop(event)">
+                                <!-- New tasks -->
+                            </div>
+                        </div>
+
+                        <!-- In Progress Column -->
+                        <div class="kanban-column in-progress" data-status="in_progress">
+                            <div class="column-header">
+                                <h3><i class="fas fa-play"></i> Ongoing</h3>
+                                <span class="task-count">0</span>
+                            </div>
+                            <div class="column-content" ondrop="drop(event)" ondragover="allowDrop(event)">
+                                <!-- In progress tasks -->
+                            </div>
+                        </div>
+
+                        <!-- Almost Done Column -->
+                        <div class="kanban-column almost-done" data-status="review">
+                            <div class="column-header">
+                                <h3><i class="fas fa-clipboard-check"></i> Almost ready</h3>
+                                <span class="task-count">0</span>
+                            </div>
+                            <div class="column-content" ondrop="drop(event)" ondragover="allowDrop(event)">
+                                <!-- Almost done tasks -->
+                            </div>
+                        </div>
+
+                        <!-- Completed Column -->
+                        <div class="kanban-column completed" data-status="completed">
+                            <div class="column-header">
+                                <h3><i class="fas fa-check-circle"></i> Completed</h3>
+                                <span class="task-count">0</span>
+                            </div>
+                            <div class="column-content" ondrop="drop(event)" ondragover="allowDrop(event)">
+                                <!-- Completed tasks -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Members Sidebar -->
+        <div class="team-sidebar" id="teamSidebar">
+            <div class="team-header">
+                <h3>Team Members</h3>
+                <button class="close-sidebar">&times;</button>
+            </div>
+            <div class="team-list" id="teamList">
+                <!-- Team members will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="taskModalTitle">Add New Task</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            
+            <form id="taskForm" class="task-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="taskTitle">Task Title</label>
+                        <input type="text" id="taskTitle" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskPriority">Priority</label>
+                        <select id="taskPriority">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" rows="4"></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="taskAssignedTo">Assigned To</label>
+                        <select id="taskAssignedTo">
+                            <option value="">Select user...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskDueDate">Due Date</label>
+                        <input type="date" id="taskDueDate">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="taskStatus">Status</label>
+                        <select id="taskStatus">
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="review">Under Review</option>
+                            <option value="completed">Completed</option>
+                            <option value="on_hold">On Hold</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskTags">Tags</label>
+                        <input type="text" id="taskTags" placeholder="Add tags...">
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-save">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Global utility functions
+        function showMainView(viewName) {
+            if (typeof app !== 'undefined') {
+                app.showMainView(viewName);
+            }
+        }
+
+        function switchView(viewType) {
+            if (typeof app !== 'undefined') {
+                app.switchView(viewType);
+            }
+        }
+
+        function openNewTaskModal() {
+            if (typeof app !== 'undefined') {
+                document.getElementById('taskModalTitle').textContent = 'Add New Task';
+                document.getElementById('taskForm').reset();
+                delete document.getElementById('taskForm').dataset.taskId;
+                app.showModal('taskModal');
+            }
+        }
+
+        function filterBy(filterType) {
+            if (typeof app !== 'undefined') {
+                app.filterBy(filterType);
+            }
+        }
+
+        function markAllRead() {
+            if (typeof app !== 'undefined') {
+                app.markAllRead();
+            }
+        }
+    </script>
+    <script src="js/bitrix-app.js"></script>
+</body>
+</html>

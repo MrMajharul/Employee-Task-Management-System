@@ -8,7 +8,7 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 // Middleware
 app.use(cors());
@@ -892,6 +892,195 @@ app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
             return res.status(500).json({ error: 'Database error' });
         }
         res.json({ message: 'Notification marked as read' });
+    });
+});
+
+// Update task status for Kanban board
+app.put('/api/tasks/:id/status', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.user.id;
+    
+    // Validate status
+    const validStatuses = ['pending', 'in_progress', 'completed', 'on_hold'];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
+        });
+    }
+    
+    // Check if user has permission to update this task
+    const checkQuery = 'SELECT * FROM tasks WHERE id = ? AND (assigned_to = ? OR created_by = ?)';
+    db.query(checkQuery, [id, userId, userId], (err, tasks) => {
+        if (err) {
+            return res.status(500).json({ success: false, error: 'Database error' });
+        }
+        
+        if (tasks.length === 0) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+        
+        // Update task status
+        const updateQuery = 'UPDATE tasks SET status = ?, updated_at = NOW() WHERE id = ?';
+        db.query(updateQuery, [status, id], (err, result) => {
+            if (err) {
+                return res.status(500).json({ success: false, error: 'Failed to update task status' });
+            }
+            
+            // Insert history record
+            const historyQuery = 'INSERT INTO task_history (task_id, field_changed, old_value, new_value, changed_by) VALUES (?, ?, ?, ?, ?)';
+            db.query(historyQuery, [id, 'status', tasks[0].status, status, userId], (historyErr) => {
+                if (historyErr) {
+                    console.error('Error inserting history:', historyErr);
+                }
+            });
+            
+            res.json({ 
+                success: true, 
+                message: 'Task status updated successfully',
+                task: { id, status }
+            });
+        });
+    });
+});
+
+// Analytics endpoint
+app.get('/api/analytics', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    // Base query conditions based on user role
+    let userCondition = '';
+    let queryParams = [];
+    
+    if (userRole !== 'admin') {
+        userCondition = 'WHERE t.assigned_to = ? OR t.created_by = ?';
+        queryParams = [userId, userId];
+    }
+    
+    // Get task statistics
+    const taskStatsQuery = `
+        SELECT 
+            COUNT(*) as total_tasks,
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks,
+            COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_tasks,
+            COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress_tasks,
+            COUNT(CASE WHEN status = 'on_hold' THEN 1 END) as on_hold_tasks,
+            COUNT(CASE WHEN due_date < CURDATE() AND status != 'completed' THEN 1 END) as overdue_tasks
+        FROM tasks t ${userCondition}
+    `;
+    
+    db.query(taskStatsQuery, queryParams, (err, taskStats) => {
+        if (err) {
+            return res.status(500).json({ success: false, error: 'Database error' });
+        }
+        
+        const stats = taskStats[0];
+        
+        // Get user performance data
+        const userStatsQuery = `
+            SELECT 
+                u.full_name,
+                COUNT(t.id) as total_assigned,
+                COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completed,
+                ROUND(COUNT(CASE WHEN t.status = 'completed' THEN 1 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) as completion_rate
+            FROM users u
+            LEFT JOIN tasks t ON u.id = t.assigned_to
+            ${userRole !== 'admin' ? 'WHERE u.id = ?' : ''}
+            GROUP BY u.id, u.full_name
+            ORDER BY completion_rate DESC
+        `;
+        
+        const userStatsParams = userRole !== 'admin' ? [userId] : [];
+        
+        db.query(userStatsQuery, userStatsParams, (userErr, userStats) => {
+            if (userErr) {
+                return res.status(500).json({ success: false, error: 'Database error' });
+            }
+            
+            // Calculate team efficiency
+            const totalTasks = stats.total_tasks || 1;
+            const completedTasks = stats.completed_tasks || 0;
+            const teamEfficiency = Math.round((completedTasks / totalTasks) * 100);
+            
+            // Get project count (simplified - using distinct created_by as projects)
+            const projectQuery = `
+                SELECT COUNT(DISTINCT created_by) as active_projects 
+                FROM tasks t 
+                WHERE status != 'completed' ${userCondition ? 'AND (' + userCondition.replace('WHERE ', '') + ')' : ''}
+            `;
+            
+            db.query(projectQuery, queryParams, (projErr, projResults) => {
+                if (projErr) {
+                    return res.status(500).json({ success: false, error: 'Database error' });
+                }
+                
+                const analytics = {
+                    totalTasks: stats.total_tasks || 0,
+                    completedTasks: stats.completed_tasks || 0,
+                    activeProjects: projResults[0].active_projects || 0,
+                    teamEfficiency: teamEfficiency,
+                    tasksByStatus: {
+                        total: stats.total_tasks || 0,
+                        pending: stats.pending_tasks || 0,
+                        in_progress: stats.in_progress_tasks || 0,
+                        completed: stats.completed_tasks || 0,
+                        on_hold: stats.on_hold_tasks || 0
+                    },
+                    userPerformance: userStats,
+                    productivityData: {
+                        // This would contain time-series data for charts
+                        // For now, we'll return placeholder data
+                        weeklyCompletion: [10, 15, 12, 18, 20, 16, 14],
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                    }
+                };
+                
+                res.json({ 
+                    success: true, 
+                    analytics: analytics 
+                });
+            });
+        });
+    });
+});
+
+// Get task statistics for dashboard
+app.get('/api/task-statistics', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    let userCondition = '';
+    let queryParams = [];
+    
+    if (userRole !== 'admin') {
+        userCondition = 'WHERE assigned_to = ? OR created_by = ?';
+        queryParams = [userId, userId];
+    }
+    
+    const query = `
+        SELECT 
+            status,
+            priority,
+            COUNT(*) as count,
+            DATE(created_at) as date
+        FROM tasks 
+        ${userCondition}
+        GROUP BY status, priority, DATE(created_at)
+        ORDER BY created_at DESC
+        LIMIT 30
+    `;
+    
+    db.query(query, queryParams, (err, results) => {
+        if (err) {
+            return res.status(500).json({ success: false, error: 'Database error' });
+        }
+        
+        res.json({ 
+            success: true, 
+            statistics: results 
+        });
     });
 });
 

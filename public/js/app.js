@@ -6,8 +6,7 @@ let authToken = localStorage.getItem('authToken');
 const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // Replace with your actual Google Client ID
 
 // API Base URL
-const API_BASE_URL = 'http://localhost:3000/api';
-
+const API_BASE_URL = 'http://localhost:3002/api';
 // Utility functions
 function showAlert(message, type = 'success') {
     const alertDiv = document.createElement('div');
@@ -829,3 +828,358 @@ function setupLoginEventListeners() {
 
 // Start the app
 document.addEventListener('DOMContentLoaded', initApp);
+
+// Modern Task Management Features
+function initializeKanbanBoard() {
+    const kanbanColumns = document.querySelectorAll('.kanban-column');
+    const taskCards = document.querySelectorAll('.kanban-task');
+
+    // Make task cards draggable
+    taskCards.forEach(card => {
+        card.draggable = true;
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+
+    // Make columns droppable
+    kanbanColumns.forEach(column => {
+        column.addEventListener('dragover', handleDragOver);
+        column.addEventListener('drop', handleDrop);
+        column.addEventListener('dragenter', handleDragEnter);
+        column.addEventListener('dragleave', handleDragLeave);
+    });
+
+    loadKanbanTasks();
+}
+
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    draggedElement = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    this.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    if (!this.contains(e.relatedTarget)) {
+        this.classList.remove('drag-over');
+    }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    
+    if (draggedElement !== this) {
+        const columnContent = this.querySelector('.column-content');
+        if (columnContent && draggedElement) {
+            const taskId = draggedElement.dataset.taskId;
+            const newStatus = this.dataset.status;
+            
+            // Update task status in database
+            updateTaskStatus(taskId, newStatus);
+            
+            // Move the element visually
+            columnContent.appendChild(draggedElement);
+            
+            // Update task count
+            updateColumnCounts();
+        }
+    }
+}
+
+function updateTaskStatus(taskId, status) {
+    fetch(`/api/tasks/${taskId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({ status: status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.error);
+        }
+        showNotification('Task status updated successfully', 'success');
+        updateAnalyticsData();
+    })
+    .catch(error => {
+        console.error('Error updating task status:', error);
+        showNotification('Error updating task status', 'error');
+    });
+}
+
+function loadKanbanTasks() {
+    fetch('/api/tasks', {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderKanbanTasks(data.tasks);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading tasks:', error);
+    });
+}
+
+function renderKanbanTasks(tasks) {
+    const columns = {
+        'pending': document.querySelector('[data-status="pending"] .column-content'),
+        'in_progress': document.querySelector('[data-status="in_progress"] .column-content'),
+        'completed': document.querySelector('[data-status="completed"] .column-content'),
+        'on_hold': document.querySelector('[data-status="on_hold"] .column-content')
+    };
+
+    // Clear existing tasks
+    Object.values(columns).forEach(column => {
+        if (column) column.innerHTML = '';
+    });
+
+    tasks.forEach(task => {
+        const taskElement = createKanbanTaskElement(task);
+        const column = columns[task.status] || columns['pending'];
+        if (column) {
+            column.appendChild(taskElement);
+        }
+    });
+
+    updateColumnCounts();
+    
+    // Re-initialize drag and drop for new elements
+    const newTaskCards = document.querySelectorAll('.kanban-task');
+    newTaskCards.forEach(card => {
+        card.draggable = true;
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+}
+
+function createKanbanTaskElement(task) {
+    const taskDiv = document.createElement('div');
+    taskDiv.className = 'kanban-task';
+    taskDiv.dataset.taskId = task.id;
+    
+    const priorityClass = `priority-${task.priority || 'low'}`;
+    const dueDateClass = getDueDateClass(task.due_date);
+    
+    taskDiv.innerHTML = `
+        <div class="task-priority ${priorityClass}"></div>
+        <div class="task-title">${task.title}</div>
+        <div class="task-description">${task.description || 'No description'}</div>
+        <div class="task-meta">
+            <div class="task-assignee">
+                <div class="assignee-avatar">${getInitials(task.assigned_to || 'Unassigned')}</div>
+                <span>${task.assigned_to || 'Unassigned'}</span>
+            </div>
+            <div class="task-due-date ${dueDateClass}">
+                ${formatDate(task.due_date)}
+            </div>
+        </div>
+    `;
+    
+    return taskDiv;
+}
+
+function getDueDateClass(dueDate) {
+    if (!dueDate) return '';
+    
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'overdue';
+    if (diffDays === 0) return 'due-today';
+    return '';
+}
+
+function getInitials(name) {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'No due date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function updateColumnCounts() {
+    const columns = document.querySelectorAll('.kanban-column');
+    columns.forEach(column => {
+        const taskCount = column.querySelectorAll('.kanban-task').length;
+        const countElement = column.querySelector('.task-count');
+        if (countElement) {
+            countElement.textContent = taskCount;
+        }
+    });
+}
+
+// Analytics Functionality
+function initializeAnalytics() {
+    if (document.querySelector('.analytics-dashboard')) {
+        loadAnalyticsData();
+    }
+}
+
+function loadAnalyticsData() {
+    fetch('/api/analytics', {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateAnalyticsCards(data.analytics);
+            renderCharts(data.analytics);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading analytics:', error);
+    });
+}
+
+function updateAnalyticsCards(analytics) {
+    // Update total tasks
+    const totalTasksElement = document.querySelector('#total-tasks .metric-large');
+    if (totalTasksElement) {
+        totalTasksElement.textContent = analytics.totalTasks || 0;
+    }
+
+    // Update completed tasks
+    const completedTasksElement = document.querySelector('#completed-tasks .metric-large');
+    if (completedTasksElement) {
+        completedTasksElement.textContent = analytics.completedTasks || 0;
+    }
+
+    // Update active projects
+    const activeProjectsElement = document.querySelector('#active-projects .metric-large');
+    if (activeProjectsElement) {
+        activeProjectsElement.textContent = analytics.activeProjects || 0;
+    }
+
+    // Update team efficiency
+    const teamEfficiencyElement = document.querySelector('#team-efficiency .metric-large');
+    if (teamEfficiencyElement) {
+        teamEfficiencyElement.textContent = `${analytics.teamEfficiency || 0}%`;
+    }
+}
+
+function renderCharts(analytics) {
+    // This would integrate with Chart.js or similar library
+    // For now, we'll create simple visual representations
+    createTaskStatusChart(analytics.tasksByStatus);
+    createProductivityChart(analytics.productivityData);
+}
+
+function createTaskStatusChart(statusData) {
+    const chartContainer = document.querySelector('#task-status-chart');
+    if (!chartContainer) return;
+
+    // Simple bar chart representation
+    chartContainer.innerHTML = `
+        <div class="simple-chart">
+            <div class="chart-bar" style="height: ${(statusData.pending / statusData.total * 100) || 0}%; background: #feca57;">
+                <span>Pending: ${statusData.pending || 0}</span>
+            </div>
+            <div class="chart-bar" style="height: ${(statusData.in_progress / statusData.total * 100) || 0}%; background: #667eea;">
+                <span>In Progress: ${statusData.in_progress || 0}</span>
+            </div>
+            <div class="chart-bar" style="height: ${(statusData.completed / statusData.total * 100) || 0}%; background: #27ae60;">
+                <span>Completed: ${statusData.completed || 0}</span>
+            </div>
+            <div class="chart-bar" style="height: ${(statusData.on_hold / statusData.total * 100) || 0}%; background: #e74c3c;">
+                <span>On Hold: ${statusData.on_hold || 0}</span>
+            </div>
+        </div>
+    `;
+}
+
+function createProductivityChart(productivityData) {
+    const chartContainer = document.querySelector('#productivity-chart');
+    if (!chartContainer) return;
+
+    // Simple line chart representation
+    chartContainer.innerHTML = '<div class="productivity-trend">Productivity trend chart would go here</div>';
+}
+
+function updateAnalyticsData() {
+    // Refresh analytics when tasks are updated
+    if (document.querySelector('.analytics-dashboard')) {
+        loadAnalyticsData();
+    }
+}
+
+// Notification System
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <span>${message}</span>
+        <button class="notification-close">&times;</button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+    
+    // Manual close
+    notification.querySelector('.notification-close').addEventListener('click', () => {
+        notification.remove();
+    });
+}
+
+// Navigation between views
+function showView(viewName) {
+    const views = ['task-manager', 'kanban-board', 'analytics-dashboard'];
+    
+    views.forEach(view => {
+        const element = document.getElementById(view);
+        if (element) {
+            element.style.display = view === viewName ? 'block' : 'none';
+        }
+    });
+    
+    // Update active navigation
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('onclick')?.includes(viewName)) {
+            link.classList.add('active');
+        }
+    });
+    
+    // Load specific view data
+    if (viewName === 'kanban-board') {
+        initializeKanbanBoard();
+        loadKanbanTasks();
+    } else if (viewName === 'analytics-dashboard') {
+        initializeAnalytics();
+        loadAnalyticsData();
+    }
+}
