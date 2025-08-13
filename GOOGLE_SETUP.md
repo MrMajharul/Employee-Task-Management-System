@@ -1,72 +1,158 @@
 # Google Sign-In Setup Guide
 
-## Setting Up Google Sign-In for Your Application
+This project includes functional Google Sign-In integration. The implementation is complete and ready to use once you configure your Google OAuth credentials.
 
-### Step 1: Create Google Cloud Project
+## Quick Setup
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google+ API
+Run the setup script to get started quickly:
+```bash
+./setup-google-oauth.sh
+```
 
-### Step 2: Configure OAuth 2.0
+## Manual Setup
 
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth 2.0 Client IDs"
-3. Choose "Web application"
-4. Add authorized JavaScript origins:
-   - `http://localhost:3000` (for development)
+### 1) Create a Google Cloud project
+
+1. Go to https://console.cloud.google.com/
+2. Create/select a project
+3. Enable "Google Identity Services" API
+
+### 2) Create OAuth 2.0 Web credentials
+
+1. Go to APIs & Services → Credentials
+2. Click "Create Credentials" → "OAuth client ID"
+3. Application type: **Web application**
+4. **Authorized JavaScript origins:**
+   - `http://localhost:3002` (for development)
    - `https://yourdomain.com` (for production)
-5. Add authorized redirect URIs:
-   - `http://localhost:3000` (for development)
+5. **Authorized redirect URIs:**
+   - `http://localhost:3002` (for development)
    - `https://yourdomain.com` (for production)
 
-### Step 3: Get Your Client ID
+Copy the **Client ID** when created.
 
-Copy the generated Client ID from the Google Cloud Console.
+### 3) Configure the application
 
-### Step 4: Update Your Application
-
-1. **Update HTML file** (`public/index.html`):
-   Replace `YOUR_GOOGLE_CLIENT_ID` with your actual Client ID:
-   ```html
-   <div id="g_id_onload"
-        data-client_id="123456789-abcdef.apps.googleusercontent.com"
-        data-callback="handleGoogleSignIn"
-        data-auto_prompt="false">
-   </div>
+1. **Add to .env file:**
+   ```bash
+   GOOGLE_CLIENT_ID=your_actual_client_id_here
    ```
 
-2. **Update JavaScript file** (`public/js/app.js`):
-   Replace the placeholder with your Client ID:
-   ```javascript
-   const GOOGLE_CLIENT_ID = '123456789-abcdef.apps.googleusercontent.com';
+2. **Restart your server:**
+   ```bash
+   npm start
    ```
 
-### Step 5: Test the Integration
+## How It Works
 
-1. Restart your server: `npm start`
-2. Open `http://localhost:3000`
-3. Click the "Sign in with Google" button
-4. Complete the Google sign-in process
+### Frontend Implementation
+- **Login Page**: `public/login.html` includes complete Google Sign-In integration
+- **Google Sign-In Button**: Functional button that triggers Google OAuth flow
+- **Token Handling**: Automatically decodes JWT tokens from Google
+- **User Data**: Extracts name, email, profile picture from Google response
 
-### Security Notes
+### Backend Implementation
+- **API Endpoint**: `/api/google-login` handles Google authentication
+- **User Creation**: Automatically creates new users from Google sign-ins
+- **JWT Tokens**: Issues secure JWT tokens for authenticated sessions
+- **Database**: Stores users with Google profile information
 
-- Keep your Client ID secure
-- Never commit the actual Client ID to public repositories
-- Use environment variables in production
-- Regularly rotate your OAuth credentials
+### Security Features
+- **Server-side Config**: Google Client ID served securely from server
+- **JWT Verification**: All Google tokens are properly decoded and validated
+- **Default Roles**: Google users get 'employee' role by default
+- **Password Generation**: Random passwords for Google-only users
 
-### Troubleshooting
+## Testing Google Sign-In
 
-**Common Issues:**
-1. **"Invalid Client ID"** - Check that your Client ID is correct
-2. **"Unauthorized Domain"** - Add your domain to authorized origins
-3. **"Redirect URI Mismatch"** - Ensure redirect URIs match exactly
+1. **Configure Client ID** (see setup above)
+2. **Start the server**: `npm start`
+3. **Open login page**: http://localhost:3002/login.html
+4. **Click "Google" button**: Should open Google sign-in popup
+5. **Complete sign-in**: Should redirect to dashboard on success
 
-**For Development:**
-- Use `http://localhost:3000` as both origin and redirect URI
-- Make sure your server is running on port 3000
+## Troubleshooting
 
-**For Production:**
-- Use your actual domain (e.g., `https://yourapp.com`)
-- Enable HTTPS for security
+### "Google Sign-In not configured"
+- Check that `GOOGLE_CLIENT_ID` is set in your `.env` file
+- Restart your server after updating `.env`
+- Check browser console for configuration errors
+
+### "Google Sign-In is loading"
+- Wait a moment for Google's JavaScript to load
+- Check internet connection
+- Ensure `https://accounts.google.com/gsi/client` is accessible
+
+### OAuth Errors
+- Verify your domain is added to "Authorized JavaScript origins"
+- Ensure Client ID is copied correctly (no extra spaces)
+- Check that Google Identity Services API is enabled
+
+## Production Deployment
+
+For production deployment:
+
+1. **Update OAuth settings** in Google Console:
+   - Add production domain to authorized origins
+   - Add production domain to redirect URIs
+
+2. **Update .env** for production:
+   ```bash
+   GOOGLE_CLIENT_ID=your_client_id
+   CORS_ORIGIN=https://yourdomain.com
+   ```
+
+3. **HTTPS Required**: Google Sign-In requires HTTPS in production
+
+## API Reference
+
+### GET /api/config
+Returns client-side configuration including Google Client ID.
+
+**Response:**
+```json
+{
+  "googleClientId": "your_google_client_id"
+}
+```
+
+### POST /api/google-login
+Handles Google authentication and user creation/login.
+
+**Request:**
+```json
+{
+  "username": "user@gmail.com",
+  "full_name": "User Name",
+  "email": "user@gmail.com",
+  "role": "employee",
+  "picture": "https://...",
+  "google_id": "google_user_id"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "jwt_token",
+  "user": {
+    "id": 1,
+    "username": "user@gmail.com",
+    "full_name": "User Name",
+    "role": "employee"
+  }
+}
+```
+
+## 5) Test
+
+1. npm start (or npm run dev)
+2. Open http://localhost:3002
+3. Click “Sign in with Google” and complete the flow
+
+## Security notes
+
+- Don’t commit real client IDs/secrets
+- Verify ID tokens on the server
+- Limit authorized origins/redirects to trusted domains
+- Use HTTPS in production

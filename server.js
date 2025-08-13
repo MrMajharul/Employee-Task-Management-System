@@ -125,6 +125,13 @@ app.post('/api/google-login', async (req, res) => {
     }
 });
 
+// Public config endpoint for frontend
+app.get('/api/config', (req, res) => {
+    res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || null
+    });
+});
+
 // Login endpoint
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;

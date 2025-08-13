@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - eTask</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        :root {
+            --primary-blue: #2f5da3;
+            --secondary-blue: #4d92e1;
+            --accent-green: #67c23a;
+            --accent-orange: #ff9900;
+            --accent-red: #f56c6c;
+            --dark-blue: #1e3a5f;
+            --light-gray: #f5f7fa;
+            --medium-gray: #e4e7ed;
+            --dark-gray: #606266;
+            --text-primary: #303133;
+            --text-secondary: #606266;
+            --text-light: #909399;
+            --border-color: #dcdfe6;
+            --shadow-medium: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+            --shadow-heavy: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow-heavy);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            position: relative;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: var(--primary-blue);
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .form-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 15px 20px 15px 45px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+        }
+
+        .form-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        .login-btn {
+            width: 100%;
+            background: var(--primary-blue);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .login-btn:hover {
+            background: var(--dark-blue);
+        }
+
+        .social-login {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .social-login p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .social-login p::before,
+        .social-login p::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 30%;
+            height: 1px;
+            background: var(--border-color);
+        }
+
+        .social-login p::before {
+            left: 0;
+        }
+
+        .social-login p::after {
+            right: 0;
+        }
+
+        .social-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .social-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .social-btn:hover {
+            border-color: var(--primary-blue);
+        }
+
+        .login-footer {
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .login-footer a {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .error-message, .success-message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .error-message {
+            background: rgba(245, 108, 108, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(245, 108, 108, 0.3);
+        }
+
+        .success-message {
+            background: rgba(103, 194, 58, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(103, 194, 58, 0.3);
+        }
+
+        .form-container {
+            display: block;
+        }
+
+        .form-container.hidden {
+            display: none;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 1.5rem;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-link">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+
+    <div class="login-container">
+        <!-- Login Form -->
+        <div id="loginForm" class="form-container">
+            <div class="login-header">
+                <h1>eTask</h1>
+                <p>Professional Task Management System</p>
+            </div>
+            
+            <form id="loginFormElement" class="login-form">
+                <div class="form-group">
+                    <input type="text" id="username" placeholder="Username or Email" required>
+                    <i class="fas fa-user"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="password" placeholder="Password" required>
+                    <i class="fas fa-lock"></i>
+                </div>
+                
+                <button type="submit" class="login-btn">Sign In</button>
+                
+                <div class="social-login">
+                    <p>Or continue with</p>
+                    <div class="social-buttons">
+                        <button type="button" class="social-btn google" id="googleSignInBtn">
+                            <i class="fab fa-google"></i>
+                            Google
+                        </button>
+                        <button type="button" class="social-btn microsoft">
+                            <i class="fab fa-microsoft"></i>
+                            Microsoft
+                        </button>
+                    </div>
+                    <!-- Hidden Google Sign-In div -->
+                    <div id="g_id_onload"
+                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                         data-callback="handleGoogleSignIn"
+                         data-auto_prompt="false"
+                         style="display: none;">
+                    </div>
+                    <div class="g_id_signin" 
+                         data-type="standard" 
+                         data-size="large" 
+                         data-theme="outline" 
+                         data-text="sign_in_with"
+                         style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="login-footer">
+                    <a href="#" id="showRegisterForm">Create Account</a>
+                    <a href="#" id="forgotPassword">Forgot Password?</a>
+                </div>
+            </form>
+            
+            <div id="loginError" class="error-message" style="display: none;"></div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="form-container hidden">
+            <div class="login-header">
+                <h1>Create Account</h1>
+                <p>Join eTask Today</p>
+            </div>
+            
+            <form id="registerFormElement" class="login-form">
+                <div class="form-group">
+                    <input type="text" id="registerFullName" placeholder="Full Name" required>
+                    <i class="fas fa-user"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="email" id="registerEmail" placeholder="Email Address" required>
+                    <i class="fas fa-envelope"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="text" id="registerUsername" placeholder="Username" required>
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="registerPassword" placeholder="Password" required>
+                    <i class="fas fa-lock"></i>
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+                    <i class="fas fa-check"></i>
+                </div>
+                
+                <div class="form-group">
+                    <select id="registerRole" required>
+                        <option value="">Select Role</option>
+                        <option value="hr">HR</option>
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <i class="fas fa-users"></i>
+                </div>
+                
+                <button type="submit" class="login-btn">Create Account</button>
+                
+                <div class="login-footer">
+                    <a href="#" id="showLoginForm">Already have an account?</a>
+                </div>
+            </form>
+            
+            <div id="registerError" class="error-message" style="display: none;"></div>
+            <div id="registerSuccess" class="success-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Google Sign-In configuration
+        let GOOGLE_CLIENT_ID = null;
+        
+        // Fetch configuration from server
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                GOOGLE_CLIENT_ID = config.googleClientId;
+                
+                if (GOOGLE_CLIENT_ID) {
+                    // Update the data-client_id attribute
+                    document.querySelector('#g_id_onload').setAttribute('data-client_id', GOOGLE_CLIENT_ID);
+                    console.log('Google Sign-In configured successfully');
+                } else {
+                    console.warn('Google Client ID not configured on server');
+                }
+            } catch (error) {
+                console.error('Failed to load configuration:', error);
+            }
+        }
+        
+        // Google Sign-In callback function
+        async function handleGoogleSignIn(response) {
+            try {
+                // Decode the JWT token from Google
+                const responsePayload = decodeJwtResponse(response.credential);
+                
+                // Prepare user data for backend
+                const userData = {
+                    username: responsePayload.email,
+                    full_name: responsePayload.name,
+                    email: responsePayload.email,
+                    role: 'employee', // Default role for Google sign-ins
+                    picture: responsePayload.picture,
+                    google_id: responsePayload.sub
+                };
+
+                // Send to backend
+                const backendResponse = await fetch('/api/google-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                });
+
+                const data = await backendResponse.json();
+                
+                if (backendResponse.ok) {
+                    // Store authentication data
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Show success message and redirect
+                    showSuccess('loginError', 'Google sign-in successful! Redirecting...');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                } else {
+                    showError('loginError', data.error || 'Google sign-in failed');
+                }
+            } catch (error) {
+                console.error('Google Sign-In Error:', error);
+                showError('loginError', 'Google sign-in failed. Please try again.');
+            }
+        }
+
+        // Utility function to decode JWT token
+        function decodeJwtResponse(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        }
+
+        // Initialize Google Sign-In when page loads
+        window.onload = async function() {
+            await loadConfig();
+        };
+
+        // Form switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const showRegisterForm = document.getElementById('showRegisterForm');
+            const showLoginForm = document.getElementById('showLoginForm');
+
+            // Google Sign-In button click handler
+            const googleSignInBtn = document.getElementById('googleSignInBtn');
+            googleSignInBtn.addEventListener('click', function() {
+                if (!GOOGLE_CLIENT_ID) {
+                    showError('loginError', 'Google Sign-In not configured. Please contact the administrator.');
+                    return;
+                }
+                
+                // Check if it's a test client ID
+                if (GOOGLE_CLIENT_ID.includes('test-client-id')) {
+                    showError('loginError', 'Google Sign-In is configured with a test ID. Please set up your real Google Client ID in the .env file. See GOOGLE_QUICK_SETUP.md for instructions.');
+                    return;
+                }
+                
+                // Trigger Google Sign-In
+                if (window.google && window.google.accounts && window.google.accounts.id) {
+                    window.google.accounts.id.prompt();
+                } else {
+                    showError('loginError', 'Google Sign-In is loading. Please try again in a moment.');
+                }
+            });
+
+            showRegisterForm.addEventListener('click', function(e) {
+                e.preventDefault();
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+            });
+
+            showLoginForm.addEventListener('click', function(e) {
+                e.preventDefault();
+                registerForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+            });
+
+            // Basic login form submission
+            document.getElementById('loginFormElement').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        localStorage.setItem('authToken', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        showError('loginError', data.message || 'Login failed');
+                    }
+                } catch (error) {
+                    showError('loginError', 'Connection error. Please try again.');
+                }
+            });
+
+            // Basic register form submission
+            document.getElementById('registerFormElement').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = {
+                    full_name: document.getElementById('registerFullName').value,
+                    email: document.getElementById('registerEmail').value,
+                    username: document.getElementById('registerUsername').value,
+                    password: document.getElementById('registerPassword').value,
+                    confirmPassword: document.getElementById('confirmPassword').value,
+                    role: document.getElementById('registerRole').value
+                };
+
+                if (formData.password !== formData.confirmPassword) {
+                    showError('registerError', 'Passwords do not match');
+                    return;
+                }
+
+                // Remove confirmPassword before sending to server
+                delete formData.confirmPassword;
+
+                try {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        showSuccess('registerSuccess', 'Account created successfully! Please sign in.');
+                        setTimeout(() => {
+                            registerForm.classList.add('hidden');
+                            loginForm.classList.remove('hidden');
+                        }, 2000);
+                    } else {
+                        showError('registerError', data.error || data.message || 'Registration failed');
+                    }
+                } catch (error) {
+                    showError('registerError', 'Connection error. Please try again.');
+                }
+            });
+
+            function showError(elementId, message) {
+                const errorElement = document.getElementById(elementId);
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 5000);
+            }
+
+            function showSuccess(elementId, message) {
+                const successElement = document.getElementById(elementId);
+                successElement.textContent = message;
+                successElement.style.display = 'block';
+                setTimeout(() => {
+                    successElement.style.display = 'none';
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>

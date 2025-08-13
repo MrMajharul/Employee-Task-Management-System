@@ -19,13 +19,29 @@ class TaskFlowApp {
     async init() {
         this.setupEventListeners();
         
-        // Check if user is logged in
+        // Check if user is logged in and verify token
         if (this.authToken && localStorage.getItem('user')) {
             this.currentUser = JSON.parse(localStorage.getItem('user'));
-            this.showDashboard();
-            await this.loadInitialData();
+            // Verify token is still valid
+            if (await this.verifyAuthentication()) {
+                this.showDashboard();
+                await this.loadInitialData();
+            } else {
+                this.logout();
+            }
         } else {
             this.showLoginForm();
+        }
+    }
+
+    async verifyAuthentication() {
+        try {
+            // Try to access a protected endpoint to verify token
+            await this.apiCall('/dashboard');
+            return true;
+        } catch (error) {
+            console.error('Authentication verification failed:', error);
+            return false;
         }
     }
 
@@ -131,12 +147,55 @@ class TaskFlowApp {
             });
         }
 
-        // Invite button
+                // Enhanced invite functionality
         const inviteBtn = document.querySelector('.invite-btn');
         if (inviteBtn) {
-            inviteBtn.addEventListener('click', () => {
-                this.showInviteModal();
-            });
+            inviteBtn.addEventListener('click', () => this.openInviteModal());
+        }
+
+        // Invite form real-time updates
+        const inviteFirstName = document.getElementById('inviteFirstName');
+        const inviteLastName = document.getElementById('inviteLastName');
+        const inviteRole = document.getElementById('inviteRole');
+        
+        if (inviteFirstName && inviteLastName) {
+            const updateInvitePreview = () => {
+                const firstName = inviteFirstName.value || 'New';
+                const lastName = inviteLastName.value || 'Team Member';
+                const role = inviteRole ? (inviteRole.selectedOptions[0]?.text || 'Employee') : 'Employee';
+                
+                const namePreview = document.getElementById('inviteNamePreview');
+                const rolePreview = document.getElementById('inviteRolePreview');
+                const avatarPreview = document.getElementById('inviteAvatarPreview');
+                
+                if (namePreview) namePreview.textContent = `${firstName} ${lastName}`;
+                if (rolePreview) rolePreview.textContent = role;
+                
+                // Update avatar with initials
+                if (avatarPreview && firstName && lastName) {
+                    const initials = firstName.charAt(0) + lastName.charAt(0);
+                    avatarPreview.innerHTML = initials.toUpperCase();
+                }
+            };
+            
+            inviteFirstName.addEventListener('input', updateInvitePreview);
+            inviteLastName.addEventListener('input', updateInvitePreview);
+            if (inviteRole) inviteRole.addEventListener('change', updateInvitePreview);
+        }
+
+        // Skills management for profile
+        this.initializeSkillsInput();
+
+        // Profile photo upload
+        const photoUpload = document.getElementById('photoUpload');
+        if (photoUpload) {
+            photoUpload.addEventListener('change', (e) => this.handlePhotoUpload(e));
+        }
+
+        // Photo remove button
+        const photoRemoveBtn = document.querySelector('.btn-photo-remove');
+        if (photoRemoveBtn) {
+            photoRemoveBtn.addEventListener('click', () => this.removeProfilePhoto());
         }
 
         // Settings button
@@ -333,6 +392,12 @@ class TaskFlowApp {
             const data = await response.json();
             
             if (!response.ok) {
+                // Handle authentication errors
+                if (response.status === 401 || response.status === 403) {
+                    console.warn('Authentication failed, redirecting to login');
+                    this.logout();
+                    throw new Error('Authentication required');
+                }
                 throw new Error(data.error || 'An error occurred');
             }
             
@@ -345,6 +410,9 @@ class TaskFlowApp {
 
     async loadInitialData() {
         try {
+            // Load dashboard data first, which includes user-specific stats
+            await this.loadDashboardData();
+            
             await Promise.all([
                 this.loadTasks(),
                 this.loadUsers(),
@@ -352,6 +420,64 @@ class TaskFlowApp {
             ]);
         } catch (error) {
             console.error('Error loading initial data:', error);
+            // If we get authentication errors, logout the user
+            if (error.message.includes('401') || error.message.includes('403')) {
+                this.logout();
+            }
+        }
+    }
+
+    async loadDashboardData() {
+        try {
+            const dashboardData = await this.apiCall('/dashboard');
+            this.updateDashboardStats(dashboardData);
+            this.displayRecentTasks(dashboardData.recentTasks || []);
+            this.updateNotificationCount(dashboardData.unreadNotifications || 0);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            throw error;
+        }
+    }
+
+    updateDashboardStats(data) {
+        // Update task counters
+        const taskCounter = document.getElementById('taskCounter');
+        if (taskCounter) {
+            taskCounter.textContent = data.total_tasks || 0;
+        }
+
+        // Update notification count
+        const notificationCount = document.querySelector('.notification-count');
+        if (notificationCount) {
+            notificationCount.textContent = data.unreadNotifications || 0;
+            notificationCount.style.display = data.unreadNotifications > 0 ? 'block' : 'none';
+        }
+
+        // Update user name in header
+        const userName = document.getElementById('userName');
+        if (userName && this.currentUser) {
+            userName.textContent = this.currentUser.full_name || this.currentUser.username;
+        }
+
+        // Update user avatar
+        const userAvatar = document.querySelector('.user-avatar');
+        if (userAvatar && this.currentUser) {
+            const name = this.currentUser.full_name || this.currentUser.username;
+            userAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=667eea&color=fff`;
+        }
+    }
+
+    displayRecentTasks(tasks) {
+        // This will display recent tasks in the dashboard
+        // You can customize this based on your dashboard layout
+        console.log('Recent tasks:', tasks);
+    }
+
+    updateNotificationCount(count) {
+        const notificationCount = document.querySelector('.notification-count');
+        if (notificationCount) {
+            notificationCount.textContent = count;
+            notificationCount.style.display = count > 0 ? 'block' : 'none';
         }
     }
 
@@ -749,19 +875,42 @@ class TaskFlowApp {
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
+        
+        // Initialize default view
         this.showMainView('tasks');
+        
+        // Set up periodic dashboard refresh
+        this.setupDashboardRefresh();
+    }
+
+    setupDashboardRefresh() {
+        // Refresh dashboard data every 30 seconds
+        if (this.dashboardRefreshInterval) {
+            clearInterval(this.dashboardRefreshInterval);
+        }
+        
+        this.dashboardRefreshInterval = setInterval(async () => {
+            try {
+                await this.loadDashboardData();
+            } catch (error) {
+                console.error('Failed to refresh dashboard:', error);
+                // If authentication fails, the apiCall method will handle logout
+            }
+        }, 30000); // 30 seconds
     }
 
     showMainView(viewName) {
         // Hide all views
         document.querySelectorAll('.main-view').forEach(view => {
             view.classList.remove('active');
+            view.style.display = 'none';
         });
         
         // Show selected view
         const view = document.getElementById(`${viewName}View`);
         if (view) {
             view.classList.add('active');
+            view.style.display = 'block';
         }
         
         // Update navigation
@@ -773,6 +922,18 @@ class TaskFlowApp {
         if (activeTab) {
             activeTab.classList.add('active');
         }
+
+        // Update page title
+        const titles = {
+            'tasks': 'My Tasks',
+            'projects': 'Projects',
+            'scrum': 'Scrum Board', 
+            'assigned': 'Tasks Set by Me',
+            'efficiency': 'Efficiency Analytics',
+            'supervising': 'Team Supervision'
+        };
+
+        document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
     }
 
     switchView(viewType) {
@@ -1352,6 +1513,12 @@ class TaskFlowApp {
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         
+        // Clear dashboard refresh interval
+        if (this.dashboardRefreshInterval) {
+            clearInterval(this.dashboardRefreshInterval);
+            this.dashboardRefreshInterval = null;
+        }
+        
         // Close any open modals
         document.querySelectorAll('.modal').forEach(modal => modal.remove());
         
@@ -1393,6 +1560,69 @@ class TaskFlowApp {
     displayAnalytics(analytics) {
         // This would show analytics in a modal or dedicated view
         this.showNotification('Analytics dashboard coming soon!', 'info');
+    }
+
+    // Initialize skills input functionality
+    initializeSkillsInput() {
+        const skillsInput = document.getElementById('profileSkillsInput');
+        const skillsContainer = document.getElementById('profileSkillsTags');
+        
+        if (skillsInput && skillsContainer) {
+            skillsInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const skill = skillsInput.value.trim();
+                    if (skill) {
+                        this.addSkillTag(skill, skillsContainer);
+                        skillsInput.value = '';
+                    }
+                }
+            });
+            
+            // Handle removing existing skill tags
+            skillsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('fa-times')) {
+                    e.target.closest('.skill-tag').remove();
+                }
+            });
+        }
+    }
+    
+    // Add skill tag
+    addSkillTag(skill, container) {
+        const skillTag = document.createElement('span');
+        skillTag.className = 'skill-tag';
+        skillTag.innerHTML = `${skill} <i class="fas fa-times"></i>`;
+        container.appendChild(skillTag);
+    }
+    
+    // Handle profile photo upload
+    handlePhotoUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const photoPreview = document.getElementById('currentProfilePhoto');
+                if (photoPreview) {
+                    photoPreview.src = e.target.result;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+    
+    // Remove profile photo
+    removeProfilePhoto() {
+        const photoPreview = document.getElementById('currentProfilePhoto');
+        if (photoPreview) {
+            // Reset to default avatar
+            photoPreview.src = 'https://ui-avatars.com/api/?name=Admin+User&background=667eea&color=fff';
+        }
+    }
+
+    // Open invite modal
+    openInviteModal() {
+        this.showModal('inviteModal');
     }
 }
 

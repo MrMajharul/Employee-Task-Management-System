@@ -1,271 +1,175 @@
 # Employee Task Management System
 
-A modern, full-stack Employee Task Management System built with Node.js, Express, MySQL, and vanilla JavaScript. This system provides a comprehensive solution for managing tasks, users, and project workflows.
+A modern full-stack Employee Task Management System built with Node.js, Express, MySQL, and vanilla JavaScript. It provides task workflows, analytics, notifications, and role-based access using SQL views, procedures, and triggers.
+
+## Quick start
+
+1) Prerequisites
+- Node.js 18+ (LTS recommended)
+- MySQL 8+
+
+2) Setup
+- Copy .env.example to .env and adjust values
+- Install dependencies: npm install
+- Ensure MySQL is running (e.g., on macOS: brew services start mysql)
+- Initialize DB schema and seed data:
+    - Import base schema: npm run import-db (runs database.sql)
+    - Optional advanced features: execute database-advanced.sql in MySQL (views, triggers, procedures, events)
+    - Seed sample users/tasks: npm run setup
+
+3) Run
+- Development: npm run dev
+- Production: npm start
+
+App is served at http://localhost:3002 by default. Static frontend is in public/ (default route loads index.html). The modern UI is available at /etask.html.
 
 ## Features
 
-### 🔐 Authentication & Authorization
-- Secure login system with JWT tokens
-- **User Registration** with email validation
-- Role-based access control (Admin/Manager/Employee)
-- Session management with persistent login
+Authentication & Authorization
+- JWT-based auth, role-based access (admin, manager, employee)
+- Registration with email validation
 
-### 📊 Dashboard
-- Real-time statistics and metrics
-- Role-specific dashboard views
-- Visual data representation with modern UI
-- **Advanced SQL Views** for optimized data retrieval
+Dashboard & Analytics
+- Role-aware dashboard stats via SQL views and procedures
+- Task analytics and user performance endpoints
 
-### 📋 Task Management
-- Create, read, update, and delete tasks
-- Assign tasks to employees with **Stored Procedures**
-- Track task status (Pending, In Progress, Completed, Cancelled, On Hold)
-- Priority levels (Low, Medium, High, Urgent)
-- Set due dates and estimated hours
-- **Automatic task history tracking** with triggers
-- Filter and search tasks with urgency indicators
+Task Management
+- CRUD, assignment, priorities, due dates, estimates
+- Kanban status updates and audit history (triggers)
 
-### 👥 User Management (Admin Only)
-- Add, edit, and delete users
-- Manage user roles and permissions
-- User profile management
-- **User performance statistics** with SQL views
+Notifications
+- DB-driven notifications with read/unread, priority, and joins to tasks/users
 
-### 🔔 Advanced Notification System
-- **Automatic notifications** triggered by database events
-- Real-time notification system
-- Mark notifications as read/unread
-- Notification priority levels
-- **Daily overdue task reminders** with MySQL Events
+Database capabilities
+- Stored procedures, triggers, transactions, views, scheduled events
 
-### 🗃️ Database Features
-- **Triggers** for automatic data logging and notifications
-- **Transactions** for data integrity and consistency
-- **Stored Procedures** for complex operations
-- **Views** for optimized and reusable queries
-- **Events** for scheduled tasks (daily reminders)
-- **Audit Trail** - Complete task history tracking
-- **Data Validation** with constraints and checks
+Frontend
+- Vanilla JS, Bootstrap 5, Font Awesome; pages: index.html and etask.html
 
-### 📱 Responsive Design
-- Mobile-friendly interface
-- Modern, clean UI design
-- Bootstrap 5 integration
+## Environment variables
 
-## Technology Stack
+Create a .env (see .env.example):
 
-### Backend
-- **Node.js** - Runtime environment
-- **Express.js** - Web framework
-- **MySQL** with advanced SQL features:
-  - Stored Procedures & Functions
-  - Triggers for automated actions
-  - Transactions for data integrity
-  - Views for complex queries
-  - Events for scheduled tasks
-- **JWT** - Authentication
-- **bcryptjs** - Password hashing
-- **CORS** - Cross-origin resource sharing
+- PORT=3002
+- DB_HOST=localhost
+- DB_USER=root
+- DB_PASSWORD=your_password
+- DB_NAME=task_management_db
+- JWT_SECRET=change-me
+- SESSION_SECRET=change-me-too
+- CORS_ORIGIN=http://localhost:3002
 
-### Frontend
-- **Vanilla JavaScript** - No framework dependencies
-- **Bootstrap 5** - UI framework
-- **Font Awesome** - Icons
-- **CSS3** - Custom styling
+Note: Server currently reads PORT from env but also uses inline defaults in server.js. Keep PORT and the frontend API base URL aligned. The frontend currently targets http://localhost:3002/api.
 
-## Prerequisites
-
-Before running this application, make sure you have the following installed:
-
-- **Node.js** (v14 or higher)
-- **MySQL** (v8.0 or higher)
-- **npm** or **yarn**
-
-## Installation
-
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd Employee-Task-Management-System
-```
-
-### 2. Install Dependencies
-```bash
-npm install
-```
-
-### 3. Database Setup
-
-#### Create the Database
-```sql
-CREATE DATABASE task_management_db;
-USE task_management_db;
-```
-
-#### Create Tables
-```sql
--- Users table
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(50) NOT NULL,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'employee') NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tasks table
-CREATE TABLE tasks (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
-    description TEXT,
-    assigned_to INT,
-    status ENUM('pending', 'in_progress', 'completed') DEFAULT 'pending',
-    due_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
-);
-
--- Notifications table
-CREATE TABLE notifications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    message TEXT NOT NULL,
-    recipient INT NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    date DATE NOT NULL,
-    is_read BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (recipient) REFERENCES users(id) ON DELETE CASCADE
-);
-```
-
-#### Insert Default Admin User
-```sql
-INSERT INTO users (full_name, username, password, role) 
-VALUES ('Admin User', 'admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin');
-```
-*Note: The password hash above corresponds to the password "password"*
-
-### 4. Environment Configuration
-
-Create a `.env` file in the root directory:
-```env
-PORT=3000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=task_management_db
-JWT_SECRET=your-secret-key
-```
-
-### 5. Start the Application
-
-#### Development Mode
-```bash
-npm run dev
-```
-
-#### Production Mode
-```bash
-npm start
-```
-
-The application will be available at `http://localhost:3000`
-
-## Usage
-
-### Default Login Credentials
-- **Username:** admin
-- **Password:** password
-
-### Admin Features
-- View all tasks and users
-- Create, edit, and delete tasks
-- Manage user accounts
-- View comprehensive dashboard statistics
-- Access user management panel
-
-### Employee Features
-- View assigned tasks
-- Update task status
-- View personal dashboard
-- Update profile information
-
-## API Endpoints
-
-### Authentication
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-
-### Dashboard
-- `GET /api/dashboard` - Get dashboard statistics
-
-### Tasks
-- `GET /api/tasks` - Get all tasks (filtered by role)
-- `POST /api/tasks` - Create new task
-- `PUT /api/tasks/:id` - Update task
-- `DELETE /api/tasks/:id` - Delete task
-
-### Users (Admin Only)
-- `GET /api/users` - Get all users
-- `POST /api/users` - Create new user
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
-
-### Profile
-- `PUT /api/profile` - Update user profile
-
-### Notifications
-- `GET /api/notifications` - Get user notifications
-- `PUT /api/notifications/:id/read` - Mark notification as read
-
-## Project Structure
+## Project structure
 
 ```
-├── server.js                 # Main server file
-├── package.json              # Dependencies and scripts
-├── README.md                 # Project documentation
-├── public/                   # Frontend files
-│   ├── index.html           # Main HTML file
+├── server.js                 # Express app (serves /public and REST API)
+├── setup.js                  # Seeds sample users and tasks
+├── import-database.js        # Imports database.sql
+├── database.sql              # Base schema and seed
+├── database-advanced.sql     # Procedures, views, triggers, events
+├── public/
+│   ├── index.html            # Landing + basic login
+│   ├── etask.html            # Modern eTask UI
 │   ├── css/
-│   │   └── style.css        # Custom styles
-│   ├── js/
-│   │   └── app.js           # Frontend JavaScript
-│   └── img/
-│       └── user.png         # User avatar
-└── .env                      # Environment variables
+│   │   ├── style.css
+│   │   └── etask.css
+│   └── js/
+│       ├── app.js            # Basic app logic / Google Sign-In hooks
+│       └── eTask-app.js      # Main eTask application (dashboard, kanban, etc.)
+├── GOOGLE_SETUP.md           # Google Sign-In setup guide
+├── package.json
+├── README.md
+└── .env (local)
 ```
 
-## Security Features
+## Running the database setup
 
-- **JWT Authentication** - Secure token-based authentication
-- **Password Hashing** - bcryptjs for password security
-- **SQL Injection Prevention** - Parameterized queries
-- **CORS Protection** - Cross-origin request handling
-- **Input Validation** - Server-side validation
+1) Import base schema and data
+- npm run import-db (executes statements from database.sql)
+
+2) Apply advanced features (optional but recommended)
+- Open database-advanced.sql in MySQL Workbench or CLI and execute it
+- This creates stored procedures (sp_create_user, sp_assign_task, sp_update_task_status, sp_get_user_dashboard), triggers, views (e.g., vw_task_summary, vw_user_task_stats), and events
+
+3) Seed sample data
+- npm run setup
+
+Default users after setup
+- Admin: admin / password
+- Manager: manager / password
+- Employee: john / password
+
+## API endpoints (summary)
+
+Auth
+- POST /api/login
+- POST /api/register
+- POST /api/google-login (expects server-side verification of Google ID token)
+- POST /api/logout
+
+Dashboard & analytics
+- GET /api/dashboard
+- GET /api/analytics
+- GET /api/task-statistics
+- GET /api/users/stats (admin/manager)
+
+Tasks
+- GET /api/tasks
+- GET /api/tasks/:id
+- POST /api/tasks
+- PUT /api/tasks/:id
+- DELETE /api/tasks/:id
+- PUT /api/tasks/:id/status (kanban quick status)
+- GET /api/tasks/:id/history
+
+Users (admin only)
+- GET /api/users
+- POST /api/users
+- PUT /api/users/:id
+- DELETE /api/users/:id
+
+Profile
+- PUT /api/profile
+
+Notifications
+- GET /api/notifications
+- PUT /api/notifications/:id/read
+
+Response shapes can vary between endpoints; standardization work is planned.
+
+## Notes on ports and frontend API base URL
+
+- Server default: PORT=3002
+- Frontend uses API base URL http://localhost:3002/api (see public/js/eTask-app.js)
+- If you change PORT, update the frontend base URL accordingly or introduce a config layer.
+
+## Security notes
+
+- Use strong JWT_SECRET and SESSION_SECRET values in production
+- Consider verifying Google ID tokens on the server using google-auth-library
+- Limit CORS origins to trusted domains (set CORS_ORIGIN)
+- Prefer HttpOnly cookies for tokens if you migrate from localStorage
+- Add Helmet and rate limiting in production
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1) Fork the repository
+2) Create a feature branch (git checkout -b feat/your-feature)
+3) Commit (git commit -m "feat: add your feature")
+4) Push (git push origin feat/your-feature)
+5) Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT
 
 ## Support
 
-If you encounter any issues or have questions, please:
-
-1. Check the existing issues
-2. Create a new issue with detailed information
-3. Include error messages and steps to reproduce
+- Check existing issues
+- Open a new issue with steps to reproduce and logs
 
 ## Acknowledgments
 
-- Bootstrap for the UI framework
-- Font Awesome for the icons
-- MySQL for the database system
-- Express.js for the web framework
+- Bootstrap, Font Awesome, MySQL, Express.js
