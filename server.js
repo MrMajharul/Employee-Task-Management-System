@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 app.use(session({
-    secret: 'your-secret-key',
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false }
@@ -23,10 +23,10 @@ app.use(session({
 
 // Database connection
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'task_management_db'
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'task_management_db'
 });
 
 db.connect((err) => {
@@ -45,7 +45,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Access token required' });
     }
 
-    jwt.verify(token, 'your-secret-key', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
         }
@@ -91,7 +91,7 @@ app.post('/api/google-login', async (req, res) => {
                     
                     const token = jwt.sign(
                         { id: user.id, username: user.username, role: user.role },
-                        'your-secret-key',
+                        process.env.JWT_SECRET || 'your-secret-key',
                         { expiresIn: '24h' }
                     );
                     
@@ -105,7 +105,7 @@ app.post('/api/google-login', async (req, res) => {
                 user = results[0];
                 const token = jwt.sign(
                     { id: user.id, username: user.username, role: user.role },
-                    'your-secret-key',
+                    process.env.JWT_SECRET || 'your-secret-key',
                     { expiresIn: '24h' }
                 );
                 
@@ -155,7 +155,7 @@ app.post('/api/login', async (req, res) => {
         
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role },
-            'your-secret-key',
+            process.env.JWT_SECRET || 'your-secret-key',
             { expiresIn: '24h' }
         );
         
@@ -229,7 +229,7 @@ app.post('/api/register', async (req, res) => {
                 
                 const token = jwt.sign(
                     { id: newUser.id, username: newUser.username, role: newUser.role },
-                    'your-secret-key',
+                    process.env.JWT_SECRET || 'your-secret-key',
                     { expiresIn: '24h' }
                 );
                 
@@ -1095,6 +1095,18 @@ app.get('/api/task-statistics', authenticateToken, (req, res) => {
 app.post('/api/logout', (req, res) => {
     req.session.destroy();
     res.json({ message: 'Logged out successfully' });
+});
+
+// Profile photo upload (placeholder endpoint)
+app.post('/api/user/profile-photo', authenticateToken, (req, res) => {
+    // Placeholder for profile photo upload functionality
+    res.json({ message: 'Profile photo upload not implemented yet' });
+});
+
+// Export user data (placeholder endpoint)
+app.get('/api/user/export-data', authenticateToken, (req, res) => {
+    // Placeholder for data export functionality
+    res.json({ message: 'Data export not implemented yet' });
 });
 
 app.listen(PORT, () => {
