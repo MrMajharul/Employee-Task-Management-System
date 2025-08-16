@@ -5,9 +5,18 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const session = require('express-session');
 const path = require('path');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 const PORT = process.env.PORT || 3002;
 
 // Middleware
@@ -1224,6 +1233,119 @@ app.get('/api/user/export-data', authenticateToken, (req, res) => {
     res.json({ message: 'Data export not implemented yet' });
 });
 
-app.listen(PORT, () => {
+// Socket.IO for real-time messaging
+const activeUsers = new Map();
+const chatRooms = new Map();
+
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+
+    // Handle user authentication and joining
+    socket.on('join', (userData) => {
+        socket.userId = userData.userId;
+        socket.username = userData.username;
+        socket.fullName = userData.fullName;
+        activeUsers.set(userData.userId, {
+            socketId: socket.id,
+            username: userData.username,
+            fullName: userData.fullName,
+            online: true
+        });
+        
+        // Join general chat room by default
+        socket.join('general');
+        
+        // Broadcast updated user list
+        io.emit('users_updated', Array.from(activeUsers.values()));
+        
+        console.log(`${userData.username} joined the chat`);
+    });
+
+    // Handle joining specific rooms
+    socket.on('join_room', (roomId) => {
+        socket.join(roomId);
+        if (!chatRooms.has(roomId)) {
+            chatRooms.set(roomId, {
+                id: roomId,
+                name: roomId.includes('general') ? 'General Chat' : `Chat ${roomId}`,
+                messages: [],
+                members: []
+            });
+        }
+        console.log(`User ${socket.username} joined room: ${roomId}`);
+    });
+
+    // Handle sending messages
+    socket.on('send_message', (messageData) => {
+        const message = {
+            id: Date.now().toString(),
+            text: messageData.text,
+            sender: {
+                id: socket.userId,
+                username: socket.username,
+                fullName: socket.fullName
+            },
+            timestamp: new Date(),
+            roomId: messageData.roomId
+        };
+
+        // Store message in room
+        if (chatRooms.has(messageData.roomId)) {
+            chatRooms.get(messageData.roomId).messages.push(message);
+        }
+
+        // Send to room members
+        io.to(messageData.roomId).emit('new_message', message);
+        
+        console.log(`Message from ${socket.username} in ${messageData.roomId}: ${messageData.text}`);
+    });
+
+    // Handle private messaging
+    socket.on('send_private_message', (data) => {
+        const message = {
+            id: Date.now().toString(),
+            text: data.text,
+            sender: {
+                id: socket.userId,
+                username: socket.username,
+                fullName: socket.fullName
+            },
+            recipient: data.recipient,
+            timestamp: new Date(),
+            private: true
+        };
+
+        // Send to recipient if online
+        const recipient = activeUsers.get(data.recipient.id);
+        if (recipient) {
+            io.to(recipient.socketId).emit('new_private_message', message);
+        }
+        
+        // Send back to sender for confirmation
+        socket.emit('message_sent', message);
+        
+        console.log(`Private message from ${socket.username} to ${data.recipient.username}`);
+    });
+
+    // Handle typing indicators
+    socket.on('typing', (data) => {
+        socket.to(data.roomId).emit('user_typing', {
+            userId: socket.userId,
+            username: socket.username,
+            isTyping: data.isTyping
+        });
+    });
+
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        if (socket.userId) {
+            activeUsers.delete(socket.userId);
+            io.emit('users_updated', Array.from(activeUsers.values()));
+            console.log(`${socket.username} disconnected`);
+        }
+    });
+});
+
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

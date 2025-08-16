@@ -8,6 +8,7 @@
     <!-- Tailwind v4 compiled CSS -->
     <link href="css/tailwind.output.css" rel="stylesheet">
     <link href="css/etask.css" rel="stylesheet">
+    <link href="css/messenger.css" rel="stylesheet">
     <script>
         // Authentication check - redirect to login if not authenticated
         (function() {
@@ -405,6 +406,172 @@
                 <i class="fas fa-eye" style="font-size: 48px; color: #ccc; margin-bottom: 16px;"></i>
                 <h3>Team Oversight</h3>
                 <p>Team monitoring and supervision tools coming soon!</p>
+            </div>
+        </div>
+
+        <!-- Messenger View -->
+        <div id="messengerView" class="main-view">
+            <div class="messenger-container">
+                <!-- Chat Sidebar -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <div class="search-bar">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Find employee or chat" id="chatSearch">
+                        </div>
+                        <button class="new-chat-btn" onclick="startNewChat()">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="chat-tabs">
+                        <button class="chat-tab active" onclick="switchChatTab('all')">All</button>
+                        <button class="chat-tab" onclick="switchChatTab('groups')">Groups</button>
+                        <button class="chat-tab" onclick="switchChatTab('direct')">Direct</button>
+                    </div>
+
+                    <div class="chat-list" id="chatList">
+                        <!-- Default chats -->
+                        <div class="chat-item active" onclick="selectChat('general')" data-room="general">
+                            <div class="chat-avatar">
+                                <div class="chat-icon general-chat">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">General chat</div>
+                                <div class="chat-preview">Use the general chat to communicate...</div>
+                                <div class="chat-time">1:22 pm</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-item" onclick="selectChat('support')" data-room="support">
+                            <div class="chat-avatar">
+                                <div class="support-avatar">
+                                    <i class="fas fa-headset"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Bitrix24 Support</div>
+                                <div class="chat-preview">Hi there! I'm AI support agent...</div>
+                                <div class="chat-time">1:37 pm</div>
+                            </div>
+                        </div>
+
+                        <div class="chat-item" onclick="selectChat('company-news')" data-room="company-news">
+                            <div class="chat-avatar">
+                                <div class="news-avatar">
+                                    <i class="fas fa-newspaper"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Company News</div>
+                                <div class="chat-preview">Share important information...</div>
+                                <div class="chat-time">1:31 pm</div>
+                            </div>
+                        </div>
+
+                        <div class="chat-item" onclick="selectChat('notes')" data-room="notes">
+                            <div class="chat-avatar">
+                                <div class="notes-avatar">
+                                    <i class="fas fa-sticky-note"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Notes</div>
+                                <div class="chat-preview">Visible to you only</div>
+                                <div class="chat-time">1:22 pm</div>
+                            </div>
+                        </div>
+
+                        <!-- Online users will be populated here -->
+                        <div id="onlineUsers" class="online-users-section">
+                            <h4>Online Users</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Main Area -->
+                <div class="chat-main">
+                    <!-- Chat Header -->
+                    <div class="chat-header">
+                        <div class="chat-header-info">
+                            <div class="chat-header-avatar">
+                                <div class="chat-icon general-chat">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                            <div class="chat-header-details">
+                                <div class="chat-header-name" id="currentChatName">General chat</div>
+                                <div class="chat-header-members" id="currentChatMembers">Members: 1</div>
+                            </div>
+                        </div>
+                        <div class="chat-header-actions">
+                            <button class="header-action-btn" onclick="toggleChatInfo()">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button class="header-action-btn" onclick="copyChat()">
+                                <i class="fas fa-copy"></i> Copy chat link
+                            </button>
+                            <button class="header-action-btn" onclick="minimizeChat()">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Welcome Message -->
+                    <div class="chat-welcome" id="chatWelcome">
+                        <div class="welcome-icon">
+                            <div class="chat-icon general-chat large">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="welcome-content">
+                            <h3>General chat</h3>
+                            <div class="welcome-features">
+                                <div class="feature-item">
+                                    <i class="fas fa-comments"></i>
+                                    <span>Communicate and share</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-lightbulb"></i>
+                                    <span>Bounce ideas around</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-sync"></i>
+                                    <span>Keep in sync with your team</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="date-separator">
+                            <span>today</span>
+                        </div>
+                        <!-- Messages will be populated here -->
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="message-input-area">
+                        <div class="message-input-container">
+                            <button class="attachment-btn" onclick="attachFile()">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <input type="text" id="messageInput" placeholder="Enter @ to mention a person or 🙂" autocomplete="off">
+                            <button class="emoji-btn" onclick="toggleEmojiPicker()">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                            <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="typing-indicator" id="typingIndicator">
+                            <!-- Typing indicators will appear here -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -853,7 +1020,10 @@
                     showSettingsModal();
                     break;
                 case 'messenger':
-                    app.showNotification('Messenger module coming soon!', 'info');
+                    showMainView('messenger');
+                    if (window.messenger) {
+                        window.messenger.initializeMessenger();
+                    }
                     break;
                 case 'feed':
                     app.showNotification('Feed module coming soon!', 'info');
@@ -983,5 +1153,6 @@
         });
     </script>
     <script src="js/eTask-app.js"></script>
+    <script src="js/messenger.js"></script>
 </body>
 </html>

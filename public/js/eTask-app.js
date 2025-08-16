@@ -1877,3 +1877,40 @@ function markAllRead() {
 
 // Initialize the app
 const app = new TaskFlowApp();
+
+// Add debugging functions for testing modal functionality
+window.debugModals = () => {
+    console.log('=== MODAL DEBUG ===');
+    const taskModal = document.getElementById('taskModal');
+    const settingsModal = document.getElementById('settingsModal');
+    
+    console.log('Task Modal:', taskModal);
+    if (taskModal) {
+        const modalActions = taskModal.querySelector('.modal-actions');
+        const saveBtn = taskModal.querySelector('.btn-save');
+        console.log('Task Modal Actions:', modalActions);
+        console.log('Save Button:', saveBtn);
+        if (modalActions) {
+            console.log('Modal actions display:', getComputedStyle(modalActions).display);
+            console.log('Modal actions visibility:', getComputedStyle(modalActions).visibility);
+        }
+    }
+    
+    console.log('Settings Modal:', settingsModal);
+    if (settingsModal) {
+        const photoUpload = settingsModal.querySelector('#photoUpload');
+        const photoPreview = settingsModal.querySelector('#currentProfilePhoto');
+        console.log('Photo Upload Input:', photoUpload);
+        console.log('Photo Preview:', photoPreview);
+    }
+};
+
+window.testTaskModal = () => {
+    console.log('Testing task modal...');
+    app.showModal('taskModal');
+};
+
+window.testPhotoUpload = () => {
+    console.log('Testing photo upload...');
+    app.showModal('settingsModal');
+};
