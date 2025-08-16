@@ -8,14 +8,20 @@
     <!-- Tailwind v4 compiled CSS -->
     <link href="css/tailwind.output.css" rel="stylesheet">
     <link href="css/etask.css" rel="stylesheet">
+    <link href="css/messenger.css" rel="stylesheet">
     <script>
         // Authentication check - redirect to login if not authenticated
-        (function() {
+        // But allow DOM to load first for better user experience
+        document.addEventListener('DOMContentLoaded', function() {
             const authToken = localStorage.getItem('authToken');
             const user = localStorage.getItem('user');
             
             if (!authToken || !user) {
-                window.location.href = 'login.html';
+                // Add a delay to allow users to see the dashboard briefly
+                console.log('No authentication found, redirecting to login...');
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 100);
                 return;
             }
             
@@ -35,9 +41,11 @@
                 console.error('Authentication verification failed:', error);
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('user');
-                window.location.href = 'login.html';
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 100);
             });
-        })();
+        });
     </script>
 </head>
 <body>
@@ -47,30 +55,30 @@
         <header class="etask-header">
             <div class="header-left">
                 <div class="logo-section">
-                    <button class="sidebar-toggle" id="sidebarToggle">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open menu" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h2 class="logo-text">eTask <span class="version"></span></h2>
                 </div>
                 
                 <nav class="main-navigation">
-                    <a href="#" class="nav-tab active" onclick="showMainView('tasks')">
+                    <a href="#" class="nav-tab active" data-view="tasks">
                         <i class="fas fa-tasks"></i> Tasks
                     </a>
-                    <a href="#" class="nav-tab" onclick="showMainView('projects')">
+                    <a href="#" class="nav-tab" data-view="projects">
                         <i class="fas fa-layer-group"></i> Projects
                     </a>
-                    <a href="#" class="nav-tab" onclick="showMainView('scrum')">
+                    <a href="#" class="nav-tab" data-view="scrum">
                         <i class="fas fa-users-cog"></i> Scrum
                     </a>
-                    <a href="#" class="nav-tab" onclick="showMainView('assigned')">
+                    <a href="#" class="nav-tab" data-view="assigned">
                         <i class="fas fa-user-check"></i> Set by me
                     </a>
-                    <a href="#" class="nav-tab new-feature" onclick="showMainView('efficiency')">
+                    <a href="#" class="nav-tab new-feature" data-view="efficiency">
                         <i class="fas fa-chart-line"></i> Efficiency
                         <span class="new-badge">NEW</span>
                     </a>
-                    <a href="#" class="nav-tab" onclick="showMainView('supervising')">
+                    <a href="#" class="nav-tab" data-view="supervising">
                         <i class="fas fa-eye"></i> Supervising
                     </a>
                 </nav>
@@ -131,6 +139,9 @@
                     <div class="task-actions">
                         <button class="action-btn new-task-btn" onclick="openNewTaskModal()">
                             <i class="fas fa-plus"></i> NEW TASK
+                        </button>
+                                                <button class="action-btn refresh-tasks-btn" onclick="window.app && window.app.refreshTasks()" title="Refresh Tasks">
+                            <i class="fas fa-sync-alt"></i> Refresh
                         </button>
                         <button class="action-btn in-progress-btn">
                             <i class="fas fa-play"></i> In progress
@@ -405,6 +416,172 @@
             </div>
         </div>
 
+        <!-- Messenger View -->
+        <div id="messengerView" class="main-view">
+            <div class="messenger-container">
+                <!-- Chat Sidebar -->
+                <div class="chat-sidebar">
+                    <div class="chat-sidebar-header">
+                        <div class="search-bar">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="Find employee or chat" id="chatSearch">
+                        </div>
+                        <button class="new-chat-btn" onclick="startNewChat()">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="chat-tabs">
+                        <button class="chat-tab active" onclick="switchChatTab('all')">All</button>
+                        <button class="chat-tab" onclick="switchChatTab('groups')">Groups</button>
+                        <button class="chat-tab" onclick="switchChatTab('direct')">Direct</button>
+                    </div>
+
+                    <div class="chat-list" id="chatList">
+                        <!-- Default chats -->
+                        <div class="chat-item active" onclick="selectChat('general')" data-room="general">
+                            <div class="chat-avatar">
+                                <div class="chat-icon general-chat">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">General chat</div>
+                                <div class="chat-preview">Use the general chat to communicate...</div>
+                                <div class="chat-time">1:22 pm</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-item" onclick="selectChat('support')" data-room="support">
+                            <div class="chat-avatar">
+                                <div class="support-avatar">
+                                    <i class="fas fa-headset"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Bitrix24 Support</div>
+                                <div class="chat-preview">Hi there! I'm AI support agent...</div>
+                                <div class="chat-time">1:37 pm</div>
+                            </div>
+                        </div>
+
+                        <div class="chat-item" onclick="selectChat('company-news')" data-room="company-news">
+                            <div class="chat-avatar">
+                                <div class="news-avatar">
+                                    <i class="fas fa-newspaper"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Company News</div>
+                                <div class="chat-preview">Share important information...</div>
+                                <div class="chat-time">1:31 pm</div>
+                            </div>
+                        </div>
+
+                        <div class="chat-item" onclick="selectChat('notes')" data-room="notes">
+                            <div class="chat-avatar">
+                                <div class="notes-avatar">
+                                    <i class="fas fa-sticky-note"></i>
+                                </div>
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">Notes</div>
+                                <div class="chat-preview">Visible to you only</div>
+                                <div class="chat-time">1:22 pm</div>
+                            </div>
+                        </div>
+
+                        <!-- Online users will be populated here -->
+                        <div id="onlineUsers" class="online-users-section">
+                            <h4>Online Users</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Main Area -->
+                <div class="chat-main">
+                    <!-- Chat Header -->
+                    <div class="chat-header">
+                        <div class="chat-header-info">
+                            <div class="chat-header-avatar">
+                                <div class="chat-icon general-chat">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                            <div class="chat-header-details">
+                                <div class="chat-header-name" id="currentChatName">General chat</div>
+                                <div class="chat-header-members" id="currentChatMembers">Members: 1</div>
+                            </div>
+                        </div>
+                        <div class="chat-header-actions">
+                            <button class="header-action-btn" onclick="toggleChatInfo()">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button class="header-action-btn" onclick="copyChat()">
+                                <i class="fas fa-copy"></i> Copy chat link
+                            </button>
+                            <button class="header-action-btn" onclick="minimizeChat()">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Welcome Message -->
+                    <div class="chat-welcome" id="chatWelcome">
+                        <div class="welcome-icon">
+                            <div class="chat-icon general-chat large">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="welcome-content">
+                            <h3>General chat</h3>
+                            <div class="welcome-features">
+                                <div class="feature-item">
+                                    <i class="fas fa-comments"></i>
+                                    <span>Communicate and share</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-lightbulb"></i>
+                                    <span>Bounce ideas around</span>
+                                </div>
+                                <div class="feature-item">
+                                    <i class="fas fa-sync"></i>
+                                    <span>Keep in sync with your team</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="date-separator">
+                            <span>today</span>
+                        </div>
+                        <!-- Messages will be populated here -->
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="message-input-area">
+                        <div class="message-input-container">
+                            <button class="attachment-btn" onclick="attachFile()">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <input type="text" id="messageInput" placeholder="Enter @ to mention a person or 🙂" autocomplete="off">
+                            <button class="emoji-btn" onclick="toggleEmojiPicker()">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                            <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="typing-indicator" id="typingIndicator">
+                            <!-- Typing indicators will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Team Members Sidebar -->
         <div class="team-sidebar" id="teamSidebar">
             <div class="team-header">
@@ -417,6 +594,7 @@
         </div>
 
         <!-- Left App Sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <div class="app-sidebar" id="appSidebar">
             <div class="app-sidebar-header">
                 <h3>eTask Menu</h3>
@@ -574,7 +752,7 @@
                         
                         <!-- Profile Photo Section -->
                         <div class="profile-photo-section">
-                            <div class="current-photo">
+                            <div class="current-photo" onclick="document.getElementById('photoUpload').click()" style="cursor: pointer;">
                                 <img id="currentProfilePhoto" src="https://ui-avatars.com/api/?name=Admin+User&background=667eea&color=fff" alt="Profile Photo" class="profile-photo-preview">
                                 <div class="photo-overlay">
                                     <i class="fas fa-camera"></i>
@@ -585,7 +763,7 @@
                                 <button type="button" class="btn-photo-upload" onclick="document.getElementById('photoUpload').click()">
                                     <i class="fas fa-upload"></i> Upload Photo
                                 </button>
-                                <button type="button" class="btn-photo-remove">
+                                <button type="button" class="btn-photo-remove" onclick="window.app && window.app.removeProfilePhoto()">
                                     <i class="fas fa-trash"></i> Remove
                                 </button>
                                 <input type="file" id="photoUpload" accept="image/*" style="display: none;">
@@ -765,48 +943,46 @@
     <script>
         // Global utility functions
         function showMainView(viewName) {
-            if (typeof app !== 'undefined') {
-                app.showMainView(viewName);
+            if (typeof window.app !== 'undefined') {
+                window.app.showMainView(viewName);
             }
         }
 
         function switchView(viewType) {
-            if (typeof app !== 'undefined') {
-                app.switchView(viewType);
+            if (typeof window.app !== 'undefined') {
+                window.app.switchView(viewType);
             }
         }
 
         function openNewTaskModal() {
-            if (typeof app !== 'undefined') {
+            if (typeof window.app !== 'undefined') {
                 document.getElementById('taskModalTitle').textContent = 'Add New Task';
                 document.getElementById('taskForm').reset();
                 delete document.getElementById('taskForm').dataset.taskId;
-                app.showModal('taskModal');
+                window.app.showModal('taskModal');
             }
         }
 
         function filterBy(filterType) {
-            if (typeof app !== 'undefined') {
-                app.filterBy(filterType);
+            if (typeof window.app !== 'undefined') {
+                window.app.filterBy(filterType);
             }
         }
 
         function markAllRead() {
-            if (typeof app !== 'undefined') {
-                app.markAllRead();
+            if (typeof window.app !== 'undefined') {
+                window.app.markAllRead();
             }
         }
 
         function showSettingsModal() {
-            if (typeof app !== 'undefined') {
-                app.showSettingsModal();
+            if (typeof window.app !== 'undefined') {
+                window.app.showSettingsModal();
             }
         }
 
         // Navigation function for sidebar modules
         function navigateToModule(moduleName) {
-            console.log('Navigating to:', moduleName);
-            
             // Update active state in sidebar
             document.querySelectorAll('.app-sidebar-nav a').forEach(link => {
                 link.classList.remove('active');
@@ -825,7 +1001,10 @@
                     showSettingsModal();
                     break;
                 case 'messenger':
-                    app.showNotification('Messenger module coming soon!', 'info');
+                    showMainView('messenger');
+                    if (window.messenger) {
+                        window.messenger.initializeMessenger();
+                    }
                     break;
                 case 'feed':
                     app.showNotification('Feed module coming soon!', 'info');
@@ -858,7 +1037,8 @@
                     app.showNotification('Subscription module coming soon!', 'info');
                     break;
                 default:
-                    console.log('Unknown module:', moduleName);
+                    // Unknown module - silently ignore
+                    break;
             }
         }
         
@@ -868,8 +1048,18 @@
             }
         }
         
-        // Profile dropdown + left sidebar wiring
+    // Profile dropdown wiring (sidebar handlers handled in eTask-app.js)
         document.addEventListener('DOMContentLoaded', function() {
+            // Ensure user name renders quickly from localStorage
+            try {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    const parsed = JSON.parse(storedUser);
+                    const nameEl = document.getElementById('userName');
+                    if (nameEl) nameEl.textContent = parsed.full_name || parsed.username || 'User';
+                }
+            } catch(e) {}
+
             const profileDropdown = document.getElementById('profileDropdown');
             const profileTrigger = document.getElementById('profileTrigger');
             const settingsBtn = document.getElementById('profileSettingsBtn');
@@ -877,6 +1067,8 @@
             const appSidebar = document.getElementById('appSidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');
             const closeAppSidebar = document.getElementById('closeAppSidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const mainNav = document.querySelector('.main-navigation');
 
             if (profileTrigger && profileDropdown) {
                 profileTrigger.addEventListener('click', (e) => {
@@ -904,19 +1096,29 @@
                 });
             }
 
-            if (sidebarToggle && appSidebar) {
-                sidebarToggle.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    appSidebar.classList.toggle('active');
-                });
-            }
+            // Sidebar toggle/overlay/close handled centrally in eTask-app.js
 
-            if (closeAppSidebar && appSidebar) {
-                closeAppSidebar.addEventListener('click', () => appSidebar.classList.remove('active'));
+            // Handle main nav clicks centrally to ensure routing works
+            if (mainNav) {
+                mainNav.addEventListener('click', (e) => {
+                    const link = e.target.closest('a[data-view]');
+                    if (!link) return;
+                    e.preventDefault();
+                    const view = link.getAttribute('data-view');
+                    // Update active state
+                    document.querySelectorAll('.main-navigation .nav-tab').forEach(a => a.classList.remove('active'));
+                    link.classList.add('active');
+                    // Route
+                    if (typeof app !== 'undefined') {
+                        app.showMainView(view);
+                    } else if (typeof showMainView === 'function') {
+                        showMainView(view);
+                    }
+                });
             }
         });
     </script>
     <script src="js/eTask-app.js"></script>
+    <script src="js/messenger.js"></script>
 </body>
 </html>

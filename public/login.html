@@ -437,6 +437,15 @@
             const registerForm = document.getElementById('registerForm');
             const showRegisterForm = document.getElementById('showRegisterForm');
             const showLoginForm = document.getElementById('showLoginForm');
+            
+            // Check URL parameters to determine which form to show initially
+            const urlParams = new URLSearchParams(window.location.search);
+            const showRegister = urlParams.get('register') === 'true' || window.location.hash === '#register';
+            
+            if (showRegister) {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+            }
 
             // Google Sign-In button click handler
             const googleSignInBtn = document.getElementById('googleSignInBtn');

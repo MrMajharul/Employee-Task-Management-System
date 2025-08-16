@@ -3,7 +3,13 @@ class TaskFlowApp {
     constructor() {
         this.currentUser = null;
         this.authToken = localStorage.getItem('authToken');
-        this.API_BASE_URL = 'http://localhost:3002/api';
+        // Use same-origin API base by default; fall back to localhost during file:// access
+        try {
+            const origin = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'http://localhost:3002';
+            this.API_BASE_URL = `${origin}/api`;
+        } catch (_) {
+            this.API_BASE_URL = 'http://localhost:3002/api';
+        }
         this.currentView = 'list';
         this.tasks = [];
         this.users = [];
@@ -19,19 +25,49 @@ class TaskFlowApp {
     async init() {
         this.setupEventListeners();
         
+        // Start real-time clock
+        this.initClock();
+        
         // Check if user is logged in and verify token
         if (this.authToken && localStorage.getItem('user')) {
             this.currentUser = JSON.parse(localStorage.getItem('user'));
+            // Immediately reflect user info in UI so header doesn't show "Loading..."
+            this.updateUserInfo();
             // Verify token is still valid
             if (await this.verifyAuthentication()) {
                 this.showDashboard();
                 await this.loadInitialData();
+                
+                // Failsafe: retry loading tasks if none were loaded initially
+                if ((!this.tasks || this.tasks.length === 0)) {
+                    console.log('No tasks loaded initially, retrying...');
+                    setTimeout(() => this.refreshTasks(), 1000);
+                }
             } else {
                 this.logout();
             }
         } else {
             this.showLoginForm();
         }
+    }
+
+    initClock() {
+        const updateClock = () => {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            
+            const timeString = `${hours}:${minutes}`;
+            const clockElement = document.querySelector('.header-time');
+            if (clockElement) {
+                clockElement.innerHTML = `${timeString} <small>WORKING</small>`;
+            }
+        };
+        
+        // Update immediately and then every second
+        updateClock();
+        setInterval(updateClock, 1000);
     }
 
     async verifyAuthentication() {
@@ -89,13 +125,26 @@ class TaskFlowApp {
                 e.target.classList.contains('btn-cancel')) {
                 this.closeModal();
             }
+            
+            // Close sidebar when clicking outside
+            if (!e.target.closest('.app-sidebar') && !e.target.closest('#sidebarToggle')) {
+                const appSidebar = document.getElementById('appSidebar');
+                const sidebarOverlay = document.getElementById('sidebarOverlay');
+                if (appSidebar && appSidebar.classList.contains('active')) {
+                    appSidebar.classList.remove('active');
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                    // Update aria-expanded state
+                    const toggleBtn = document.getElementById('sidebarToggle');
+                    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+                }
+            }
         });
 
         // Search functionality
         const searchInput = document.getElementById('taskSearch');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
-                this.filters.search = e.target.value;
+                this.filters.search = e.target.value.toLowerCase().trim();
                 this.filterAndDisplayTasks();
             });
         }
@@ -104,21 +153,76 @@ class TaskFlowApp {
         const globalSearch = document.querySelector('.global-search');
         if (globalSearch) {
             globalSearch.addEventListener('input', (e) => {
-                this.filters.search = e.target.value;
+                this.filters.search = e.target.value.toLowerCase().trim();
                 this.filterAndDisplayTasks();
+                
+                // Visual feedback
+                if (e.target.value.trim()) {
+                    e.target.parentElement.classList.add('searching');
+                } else {
+                    e.target.parentElement.classList.remove('searching');
+                }
             });
         }
 
         // Sidebar toggle (left app sidebar)
         const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
         if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', () => {
+            sidebarToggle.addEventListener('click', (e) => {
+                e.preventDefault();
                 const appSidebar = document.getElementById('appSidebar');
                 if (appSidebar) {
+                    const willActivate = !appSidebar.classList.contains('active');
                     appSidebar.classList.toggle('active');
+                    if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
+                    // Update aria-expanded
+                    sidebarToggle.setAttribute('aria-expanded', willActivate ? 'true' : 'false');
+                }
+            });
+            // Keyboard accessibility
+            sidebarToggle.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    sidebarToggle.click();
                 }
             });
         }
+
+        // Close app sidebar
+        const closeAppSidebar = document.getElementById('closeAppSidebar');
+        if (closeAppSidebar) {
+            closeAppSidebar.addEventListener('click', () => {
+                const appSidebar = document.getElementById('appSidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                if (appSidebar) appSidebar.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
+                if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        // Close sidebar when overlay is clicked
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => {
+                const appSidebar = document.getElementById('appSidebar');
+                if (appSidebar) appSidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+                if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        // ESC key closes the sidebar
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const appSidebar = document.getElementById('appSidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                if (appSidebar && appSidebar.classList.contains('active')) {
+                    appSidebar.classList.remove('active');
+                    if (overlay) overlay.classList.remove('active');
+                    if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+                }
+            }
+        });
 
         // Team sidebar close
         const closeSidebar = document.querySelector('.close-sidebar');
@@ -410,19 +514,29 @@ class TaskFlowApp {
 
     async loadInitialData() {
         try {
+            console.log('Starting to load initial data...');
+            
             // Load dashboard data first, which includes user-specific stats
             await this.loadDashboardData();
             
+            // Load tasks and users in parallel
             await Promise.all([
                 this.loadTasks(),
-                this.loadUsers(),
-                this.updateUserInfo()
+                this.loadUsers()
             ]);
+            
+            // Update user info after everything is loaded
+            this.updateUserInfo();
+            
+            console.log('Initial data loading completed');
         } catch (error) {
             console.error('Error loading initial data:', error);
             // If we get authentication errors, logout the user
-            if (error.message.includes('401') || error.message.includes('403')) {
+            if (error.message.includes('401') || error.message.includes('403') || error.message.includes('Authentication')) {
                 this.logout();
+            } else {
+                // For non-auth errors, still try to show the dashboard
+                this.showNotification('Some data failed to load. Please refresh the page.', 'warning');
             }
         }
     }
@@ -483,14 +597,49 @@ class TaskFlowApp {
 
     async loadTasks() {
         try {
+            console.log('Loading tasks from API...');
             const response = await this.apiCall('/tasks');
-            this.tasks = response.tasks || response || [];
-            this.filterAndDisplayTasks();
-            this.updateTaskCounters();
+            console.log('Tasks API response:', response);
+            
+            // Handle different response formats
+            this.tasks = Array.isArray(response) ? response : (response.tasks || []);
+            console.log('Loaded tasks:', this.tasks.length);
+            
+            // Ensure DOM is ready before displaying
+            if (document.getElementById('taskList')) {
+                this.filterAndDisplayTasks();
+                this.updateTaskCounters();
+            } else {
+                console.warn('TaskList element not found, will retry when DOM is ready');
+                // Retry after a short delay
+                setTimeout(() => {
+                    if (document.getElementById('taskList')) {
+                        this.filterAndDisplayTasks();
+                        this.updateTaskCounters();
+                    }
+                }, 500);
+            }
+            
+            // Show success message if tasks loaded
+            if (this.tasks.length > 0) {
+                console.log('Tasks loaded successfully:', this.tasks.length);
+            }
         } catch (error) {
             console.error('Error loading tasks:', error);
-            this.showNotification('Failed to load tasks', 'error');
+            this.showNotification('Failed to load tasks: ' + error.message, 'error');
+            
+            // Show empty state with proper message
+            const taskList = document.getElementById('taskList');
+            if (taskList) {
+                taskList.innerHTML = '<div class="no-tasks-message">Unable to load tasks. Please check your connection.</div>';
+            }
         }
+    }
+    
+    // Method to force refresh tasks
+    async refreshTasks() {
+        console.log('Refreshing tasks...');
+        await this.loadTasks();
     }
 
     async loadUsers() {
@@ -533,13 +682,21 @@ class TaskFlowApp {
     filterAndDisplayTasks() {
         let filteredTasks = [...this.tasks];
         
+        console.log('filterAndDisplayTasks: Filtering tasks. Total:', filteredTasks.length, 'Search term:', this.filters.search);
+        
         // Apply search filter
-        if (this.filters.search) {
+        if (this.filters.search && this.filters.search.trim() !== '') {
             const search = this.filters.search.toLowerCase();
-            filteredTasks = filteredTasks.filter(task => 
-                task.title.toLowerCase().includes(search) ||
-                (task.description && task.description.toLowerCase().includes(search))
-            );
+            filteredTasks = filteredTasks.filter(task => {
+                const title = (task.title || '').toLowerCase();
+                const description = (task.description || '').toLowerCase();
+                const assignedName = (task.assigned_to_name || '').toLowerCase();
+                
+                return title.includes(search) || 
+                       description.includes(search) || 
+                       assignedName.includes(search);
+            });
+            console.log('After search filter:', filteredTasks.length);
         }
         
         // Apply status filter
@@ -552,29 +709,96 @@ class TaskFlowApp {
             filteredTasks = filteredTasks.filter(task => task.assigned_to == this.filters.assignee);
         }
         
+        console.log('Final filtered tasks for display:', filteredTasks.length);
+        
         // Display based on current view
         if (this.currentView === 'list') {
             this.displayTaskList(filteredTasks);
         } else if (this.currentView === 'kanban') {
             this.displayKanbanBoard(filteredTasks);
         }
+        
+        // Update search results indicator
+        this.updateSearchResultsIndicator(filteredTasks.length, this.tasks.length);
+    }
+    
+    updateSearchResultsIndicator(filteredCount, totalCount) {
+        const indicator = document.querySelector('.search-results-indicator');
+        if (this.filters.search && this.filters.search.trim() !== '') {
+            if (!indicator) {
+                const searchContainer = document.querySelector('.search-section');
+                if (searchContainer) {
+                    const indicatorEl = document.createElement('div');
+                    indicatorEl.className = 'search-results-indicator';
+                    searchContainer.appendChild(indicatorEl);
+                }
+            }
+            const indicatorEl = document.querySelector('.search-results-indicator');
+            if (indicatorEl) {
+                indicatorEl.innerHTML = `
+                    <i class="fas fa-search"></i>
+                    Found ${filteredCount} of ${totalCount} tasks
+                    <button class="clear-search" onclick="window.app.clearSearch()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                indicatorEl.style.display = 'flex';
+            }
+        } else if (indicator) {
+            indicator.style.display = 'none';
+        }
+    }
+    
+    clearSearch() {
+        this.filters.search = '';
+        
+        // Clear search inputs
+        const searchInput = document.getElementById('taskSearch');
+        const globalSearch = document.querySelector('.global-search');
+        
+        if (searchInput) searchInput.value = '';
+        if (globalSearch) {
+            globalSearch.value = '';
+            globalSearch.parentElement.classList.remove('searching');
+        }
+        
+        this.filterAndDisplayTasks();
     }
 
     displayTaskList(tasks) {
+        console.log('displayTaskList called with:', tasks ? tasks.length : 0, 'tasks');
         const taskList = document.getElementById('taskList');
-        if (!taskList) return;
-        
-        taskList.innerHTML = '';
-        
-        if (tasks.length === 0) {
-            taskList.innerHTML = '<div class="loading">No tasks found</div>';
+        if (!taskList) {
+            console.warn('taskList element not found in DOM');
             return;
         }
         
-        tasks.forEach(task => {
+        console.log('TaskList element found, clearing and populating...');
+        taskList.innerHTML = '';
+        
+        if (!tasks || tasks.length === 0) {
+            console.log('No tasks to display, showing empty state');
+            taskList.innerHTML = `
+                <div class="no-tasks-message">
+                    <i class="fas fa-tasks" style="font-size: 48px; color: #ccc; margin-bottom: 16px;"></i>
+                    <h3>No tasks found</h3>
+                    <p>Create your first task to get started!</p>
+                    <button class="btn-primary" onclick="openNewTaskModal()">
+                        <i class="fas fa-plus"></i> Create Task
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        console.log('Displaying', tasks.length, 'tasks');
+        tasks.forEach((task, index) => {
+            console.log(`Creating task element ${index + 1}:`, task.title);
             const taskElement = this.createTaskListItem(task);
             taskList.appendChild(taskElement);
         });
+        
+        console.log('Task list population completed');
     }
 
     createTaskListItem(task) {
@@ -582,39 +806,53 @@ class TaskFlowApp {
         taskDiv.className = 'task-item';
         taskDiv.dataset.taskId = task.id;
         
-        const assignedUser = this.users.find(u => u.id == task.assigned_to);
+        // Handle user assignment - check different possible field names
+        let assignedUser = null;
+        if (task.assigned_to_name) {
+            assignedUser = {
+                full_name: task.assigned_to_name,
+                email: task.assigned_to_email || ''
+            };
+        } else if (task.assigned_to) {
+            assignedUser = this.users.find(u => u.id == task.assigned_to);
+        }
+        
         const priorityClass = `priority-${task.priority || 'medium'}`;
         const statusClass = `status-${task.status || 'pending'}`;
         
+        // Determine urgency styling
+        const urgencyClass = task.urgency_status === 'overdue' ? 'task-overdue' : '';
+        
         taskDiv.innerHTML = `
-            <div class="task-content">
+            <div class="task-content ${urgencyClass}">
                 <div class="task-header">
-                    <h4 class="task-title">${task.title}</h4>
+                    <h4 class="task-title">${task.title || 'Untitled Task'}</h4>
                     <div class="task-actions">
                         <span class="task-status ${statusClass}">${this.formatStatus(task.status)}</span>
-                        <button class="edit-task" onclick="app.editTask(${task.id})">
+                        <span class="task-priority ${priorityClass}">
+                            <i class="fas fa-flag"></i> ${(task.priority || 'medium').toUpperCase()}
+                        </span>
+                        <button class="edit-task" onclick="window.app.editTask(${task.id})" title="Edit task">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="delete-task" onclick="app.deleteTask(${task.id})">
+                        <button class="delete-task" onclick="window.app.deleteTask(${task.id})" title="Delete task">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
-                <div class="task-description">${task.description || 'No description'}</div>
+                <div class="task-description">${task.description || 'No description provided'}</div>
                 <div class="task-meta">
                     <div class="task-assignee">
                         ${assignedUser ? `
                             <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(assignedUser.full_name)}&background=667eea&color=fff" 
                                  alt="${assignedUser.full_name}" class="assignee-avatar">
                             <span>${assignedUser.full_name}</span>
-                        ` : '<span>Unassigned</span>'}
+                        ` : '<span class="unassigned">Unassigned</span>'}
                     </div>
                     <div class="task-due-date ${this.getDueDateClass(task.due_date)}">
-                        ${this.formatDate(task.due_date)}
+                        <i class="fas fa-calendar-alt"></i> ${this.formatDate(task.due_date)}
                     </div>
-                    <div class="task-priority ${priorityClass}">
-                        <i class="fas fa-flag"></i> ${task.priority || 'medium'}
-                    </div>
+                    ${task.urgency_status === 'overdue' ? '<span class="overdue-badge"><i class="fas fa-exclamation-triangle"></i> Overdue</span>' : ''}
                 </div>
             </div>
         `;
@@ -826,12 +1064,16 @@ class TaskFlowApp {
     }
 
     updateUserInfo() {
+        const name = this.currentUser ? (this.currentUser.full_name || this.currentUser.username || 'User') : 'User';
         const userNameElements = document.querySelectorAll('#userName');
         userNameElements.forEach(element => {
-            if (this.currentUser) {
-                element.textContent = this.currentUser.full_name;
-            }
+            element.textContent = name;
         });
+        // Also update avatar if present
+        const avatar = document.querySelector('.user-avatar');
+        if (avatar) {
+            avatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=667eea&color=fff`;
+        }
     }
 
     async editTask(taskId) {
@@ -891,8 +1133,15 @@ class TaskFlowApp {
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         
-        // Initialize default view
-        this.showMainView('tasks');
+        // Initialize default view - ensure DOM is ready first
+        setTimeout(() => {
+            this.showMainView('tasks');
+            // Force task loading after DOM is ready
+            if (this.tasks && this.tasks.length > 0) {
+                console.log('Re-displaying tasks after dashboard show:', this.tasks.length);
+                this.filterAndDisplayTasks();
+            }
+        }, 100);
         
         // Set up periodic dashboard refresh
         this.setupDashboardRefresh();
@@ -915,6 +1164,8 @@ class TaskFlowApp {
     }
 
     showMainView(viewName) {
+        console.log('Switching to view:', viewName);
+        
         // Hide all views
         document.querySelectorAll('.main-view').forEach(view => {
             view.classList.remove('active');
@@ -933,9 +1184,15 @@ class TaskFlowApp {
             tab.classList.remove('active');
         });
         
-        const activeTab = document.querySelector(`[onclick="showMainView('${viewName}')"]`);
+        const activeTab = document.querySelector(`[onclick="showMainView('${viewName}')"]`) || document.querySelector(`[data-view="${viewName}"]`);
         if (activeTab) {
             activeTab.classList.add('active');
+        }
+        
+        // If switching to tasks view, ensure tasks are displayed
+        if (viewName === 'tasks' && this.tasks && this.tasks.length > 0) {
+            console.log('Refreshing task display for tasks view');
+            setTimeout(() => this.filterAndDisplayTasks(), 100);
         }
 
         // Update page title
@@ -945,7 +1202,8 @@ class TaskFlowApp {
             'scrum': 'Scrum Board', 
             'assigned': 'Tasks Set by Me',
             'efficiency': 'Efficiency Analytics',
-            'supervising': 'Team Supervision'
+            'supervising': 'Team Supervision',
+            'messenger': 'Messenger'
         };
 
         document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
@@ -1358,10 +1616,27 @@ class TaskFlowApp {
             return;
         }
 
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const photoPreview = document.getElementById('currentProfilePhoto');
+            const userAvatar = document.querySelector('.user-avatar');
+            if (photoPreview) {
+                photoPreview.src = event.target.result;
+            }
+            if (userAvatar) {
+                userAvatar.src = event.target.result;
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // Try to upload to server
         const formData = new FormData();
         formData.append('profilePhoto', file);
 
         try {
+            this.showNotification('Uploading photo...', 'info');
+            
             const response = await fetch(`${this.API_BASE_URL}/user/profile-photo`, {
                 method: 'POST',
                 headers: {
@@ -1370,22 +1645,29 @@ class TaskFlowApp {
                 body: formData
             });
 
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to upload photo');
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Update UI with server response
+                if (data.photoUrl) {
+                    document.getElementById('currentProfilePhoto').src = data.photoUrl;
+                    const userAvatar = document.querySelector('.user-avatar');
+                    if (userAvatar) userAvatar.src = data.photoUrl;
+                    
+                    this.currentUser.profile_photo = data.photoUrl;
+                    localStorage.setItem('user', JSON.stringify(this.currentUser));
+                }
+                
+                this.showNotification('Profile photo updated successfully!', 'success');
+            } else {
+                // If server upload fails, keep the local preview
+                console.warn('Server upload failed, keeping local preview');
+                this.showNotification('Photo updated locally (server upload failed)', 'warning');
             }
-
-            // Update UI
-            document.getElementById('currentProfilePhoto').src = data.photoUrl;
-            document.querySelector('.user-avatar').src = data.photoUrl;
-            
-            this.currentUser.profile_photo = data.photoUrl;
-            localStorage.setItem('user', JSON.stringify(this.currentUser));
-
-            this.showNotification('Profile photo updated successfully!', 'success');
         } catch (error) {
-            this.showNotification(error.message, 'error');
+            console.error('Photo upload error:', error);
+            // Keep the local preview even if server upload fails
+            this.showNotification('Photo updated locally (server not available)', 'warning');
         }
     }
 
@@ -1613,30 +1895,6 @@ class TaskFlowApp {
         container.appendChild(skillTag);
     }
     
-    // Handle profile photo upload
-    handlePhotoUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const photoPreview = document.getElementById('currentProfilePhoto');
-                if (photoPreview) {
-                    photoPreview.src = e.target.result;
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-    
-    // Remove profile photo
-    removeProfilePhoto() {
-        const photoPreview = document.getElementById('currentProfilePhoto');
-        if (photoPreview) {
-            // Reset to default avatar
-            photoPreview.src = 'https://ui-avatars.com/api/?name=Admin+User&background=667eea&color=fff';
-        }
-    }
-
     // Open invite modal
     openInviteModal() {
         this.showModal('inviteModal');
@@ -1645,11 +1903,15 @@ class TaskFlowApp {
 
 // Global functions for onclick handlers
 function showMainView(viewName) {
-    app.showMainView(viewName);
+    if (window.app) {
+        window.app.showMainView(viewName);
+    }
 }
 
 function switchView(viewType) {
-    app.switchView(viewType);
+    if (window.app) {
+        window.app.switchView(viewType);
+    }
 }
 
 function openNewTaskModal() {
@@ -1658,26 +1920,94 @@ function openNewTaskModal() {
     delete document.getElementById('taskForm').dataset.taskId;
     
     // Ensure users are loaded in dropdown
-    if (app.users && app.users.length > 0) {
-        app.populateUserDropdowns();
-    } else {
-        app.loadUsers();
+    if (window.app && window.app.users && window.app.users.length > 0) {
+        window.app.populateUserDropdowns();
+    } else if (window.app) {
+        window.app.loadUsers();
     }
     
-    app.showModal('taskModal');
+    if (window.app) {
+        window.app.showModal('taskModal');
+    }
 }
 
 function filterBy(filterType) {
-    if (filterType === 'overdue') {
-        app.filters.status = 'all';
-        // Filter will be applied in filterAndDisplayTasks based on due date
+    if (window.app) {
+        if (filterType === 'overdue') {
+            window.app.filters.status = 'all';
+            // Filter will be applied in filterAndDisplayTasks based on due date
+        }
+        window.app.filterAndDisplayTasks();
     }
-    app.filterAndDisplayTasks();
 }
 
 function markAllRead() {
-    app.showNotification('All tasks marked as read', 'success');
+    if (window.app) {
+        window.app.showNotification('All tasks marked as read', 'success');
+    }
 }
 
 // Initialize the app
-const app = new TaskFlowApp();
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new TaskFlowApp();
+});
+
+// Add debugging functions for testing modal functionality
+window.debugModals = () => {
+    console.log('=== MODAL DEBUG ===');
+    const taskModal = document.getElementById('taskModal');
+    const settingsModal = document.getElementById('settingsModal');
+    
+    console.log('Task Modal:', taskModal);
+    if (taskModal) {
+        const modalActions = taskModal.querySelector('.modal-actions');
+        const saveBtn = taskModal.querySelector('.btn-save');
+        console.log('Task Modal Actions:', modalActions);
+        console.log('Save Button:', saveBtn);
+        if (modalActions) {
+            console.log('Modal actions display:', getComputedStyle(modalActions).display);
+            console.log('Modal actions visibility:', getComputedStyle(modalActions).visibility);
+        }
+    }
+    
+    console.log('Settings Modal:', settingsModal);
+    if (settingsModal) {
+        const photoUpload = settingsModal.querySelector('#photoUpload');
+        const photoPreview = settingsModal.querySelector('#currentProfilePhoto');
+        console.log('Photo Upload Input:', photoUpload);
+        console.log('Photo Preview:', photoPreview);
+    }
+};
+
+window.debugSidebar = () => {
+    console.log('=== SIDEBAR DEBUG ===');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const appSidebar = document.getElementById('appSidebar');
+    const closeAppSidebar = document.getElementById('closeAppSidebar');
+    
+    console.log('Sidebar Toggle Button:', sidebarToggle);
+    console.log('App Sidebar:', appSidebar);
+    console.log('Close App Sidebar Button:', closeAppSidebar);
+    
+    if (appSidebar) {
+        const computedStyle = getComputedStyle(appSidebar);
+        console.log('Sidebar active class:', appSidebar.classList.contains('active'));
+        console.log('Sidebar left position:', computedStyle.left);
+        console.log('Sidebar z-index:', computedStyle.zIndex);
+        console.log('Sidebar display:', computedStyle.display);
+    }
+};
+
+window.testTaskModal = () => {
+    console.log('Testing task modal...');
+    if (window.app) {
+        window.app.showModal('taskModal');
+    }
+};
+
+window.testPhotoUpload = () => {
+    console.log('Testing photo upload...');
+    if (window.app) {
+        window.app.showModal('settingsModal');
+    }
+};

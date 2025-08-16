@@ -263,11 +263,15 @@ body {
     padding: 8px;
     border-radius: 6px;
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .sidebar-toggle:hover {
     background: var(--light-gray);
     color: var(--primary-blue);
+    transform: scale(1.1);
 }
 
 .logo-text {
@@ -1210,8 +1214,12 @@ body {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 24px;
-    padding-top: 20px;
+    padding: 20px 0 10px 0;
     border-top: 1px solid var(--border-color);
+    position: sticky;
+    bottom: 0;
+    background: white;
+    z-index: 10;
 }
 
 .btn-cancel, .btn-save {
@@ -1222,6 +1230,7 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     border: none;
+    min-width: 100px;
 }
 
 .btn-cancel {
@@ -1549,14 +1558,12 @@ body {
 }
 
 .btn-save {
-    background: var(--primary-color);
-    color: white;
+    background: var(--light-color);
+    color: var(--text-muted);
 }
 
 .btn-save:hover {
-    background: var(--secondary-color);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    background: var(--border-color);
 }
 
 /* Error and Success Messages */
@@ -1832,6 +1839,7 @@ body {
 
 .app-sidebar.active {
     left: 0;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.25);
 }
 
 .app-sidebar-header {
@@ -1907,6 +1915,24 @@ body {
     height: 1px;
     background: #e5e5e5;
     margin: 8px 20px;
+}
+
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.sidebar-overlay.active {
+    opacity: 1;
+    visibility: visible;
 }
 
 .sidebar-header h3 {
@@ -3152,4 +3178,132 @@ input:checked + .toggle-slider:before {
 .settings-section input[type="checkbox"] {
     width: auto;
     margin: 0;
+}
+
+/* Task List Enhancements */
+.no-tasks-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.no-tasks-message h3 {
+    color: var(--text-primary);
+    margin: 16px 0 8px 0;
+    font-size: 1.5rem;
+}
+
+.no-tasks-message p {
+    margin: 8px 0 24px 0;
+    font-size: 1rem;
+}
+
+.task-overdue {
+    border-left: 4px solid #ff4757;
+    background: linear-gradient(90deg, rgba(255, 71, 87, 0.05) 0%, transparent 20%);
+}
+
+.overdue-badge {
+    background: #ff4757;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.task-priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.priority-urgent { background: #ff4757; color: white; }
+.priority-high { background: #ff6348; color: white; }
+.priority-medium { background: #ffa502; color: white; }
+.priority-low { background: #7bed9f; color: #2f3542; }
+
+.unassigned {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Search Enhancements */
+.search-global.searching {
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.search-results-indicator {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.clear-search {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clear-search:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+/* Clock Styling */
+.header-time {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 70px;
+}
+
+.header-time small {
+    font-size: 0.7rem;
+    color: var(--success-color);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* Responsive Task Items */
+@media (max-width: 768px) {
+    .task-meta {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .task-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .task-priority,
+    .task-status {
+        font-size: 0.7rem;
+        padding: 1px 6px;
+    }
 }
