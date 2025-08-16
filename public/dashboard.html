@@ -419,16 +419,50 @@
         <!-- Left App Sidebar -->
         <div class="app-sidebar" id="appSidebar">
             <div class="app-sidebar-header">
-                <h3>Menu</h3>
+                <h3>eTask Menu</h3>
                 <button class="close-app-sidebar" id="closeAppSidebar">&times;</button>
             </div>
             <nav class="app-sidebar-nav">
-                <a href="#" onclick="showMainView('tasks')"><i class="fas fa-tasks"></i> Tasks</a>
-                <a href="#" onclick="showMainView('projects')"><i class="fas fa-layer-group"></i> Projects</a>
-                <a href="#" onclick="showMainView('scrum')"><i class="fas fa-users-cog"></i> Scrum</a>
-                <a href="#" onclick="showMainView('assigned')"><i class="fas fa-user-check"></i> Set by me</a>
-                <a href="#" onclick="showMainView('efficiency')"><i class="fas fa-chart-line"></i> Efficiency</a>
-                <a href="#" onclick="showMainView('supervising')"><i class="fas fa-eye"></i> Supervising</a>
+                <a href="#" data-route="messenger" onclick="navigateToModule('messenger')">
+                    <i class="fas fa-comments"></i> Messenger
+                </a>
+                <a href="#" data-route="feed" onclick="navigateToModule('feed')">
+                    <i class="fas fa-rss"></i> Feed
+                </a>
+                <a href="#" data-route="calendar" onclick="navigateToModule('calendar')">
+                    <i class="fas fa-calendar-alt"></i> Calendar
+                </a>
+                <a href="#" data-route="documents" onclick="navigateToModule('documents')">
+                    <i class="fas fa-file-alt"></i> Online Documents
+                </a>
+                <a href="#" data-route="webmail" onclick="navigateToModule('webmail')">
+                    <i class="fas fa-envelope"></i> Webmail
+                </a>
+                <a href="#" data-route="groupworks" onclick="navigateToModule('groupworks')">
+                    <i class="fas fa-users"></i> Group Works
+                </a>
+                <a href="#" data-route="tasks" onclick="navigateToModule('tasks')" class="active">
+                    <i class="fas fa-tasks"></i> Task and Project
+                </a>
+                <a href="#" data-route="booking" onclick="navigateToModule('booking')">
+                    <i class="fas fa-calendar-check"></i> Booking
+                </a>
+                <a href="#" data-route="inventory" onclick="navigateToModule('inventory')">
+                    <i class="fas fa-boxes"></i> Inventory Management
+                </a>
+                <a href="#" data-route="esignature" onclick="navigateToModule('esignature')">
+                    <i class="fas fa-signature"></i> E-Signature
+                </a>
+                <a href="#" data-route="employees" onclick="navigateToModule('employees')">
+                    <i class="fas fa-user-tie"></i> Employees
+                </a>
+                <a href="#" data-route="subscription" onclick="navigateToModule('subscription')">
+                    <i class="fas fa-credit-card"></i> Subscription
+                </a>
+                <div class="sidebar-divider"></div>
+                <a href="#" data-route="settings" onclick="navigateToModule('settings')">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
             </nav>
         </div>
     </div>
@@ -769,6 +803,65 @@
             }
         }
 
+        // Navigation function for sidebar modules
+        function navigateToModule(moduleName) {
+            console.log('Navigating to:', moduleName);
+            
+            // Update active state in sidebar
+            document.querySelectorAll('.app-sidebar-nav a').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-route="${moduleName}"]`).classList.add('active');
+            
+            // Close sidebar after navigation
+            document.getElementById('appSidebar').classList.remove('active');
+            
+            // Handle different modules
+            switch(moduleName) {
+                case 'tasks':
+                    showMainView('tasks');
+                    break;
+                case 'settings':
+                    showSettingsModal();
+                    break;
+                case 'messenger':
+                    app.showNotification('Messenger module coming soon!', 'info');
+                    break;
+                case 'feed':
+                    app.showNotification('Feed module coming soon!', 'info');
+                    break;
+                case 'calendar':
+                    app.showNotification('Calendar module coming soon!', 'info');
+                    break;
+                case 'documents':
+                    app.showNotification('Online Documents module coming soon!', 'info');
+                    break;
+                case 'webmail':
+                    app.showNotification('Webmail module coming soon!', 'info');
+                    break;
+                case 'groupworks':
+                    app.showNotification('Group Works module coming soon!', 'info');
+                    break;
+                case 'booking':
+                    app.showNotification('Booking module coming soon!', 'info');
+                    break;
+                case 'inventory':
+                    app.showNotification('Inventory Management module coming soon!', 'info');
+                    break;
+                case 'esignature':
+                    app.showNotification('E-Signature module coming soon!', 'info');
+                    break;
+                case 'employees':
+                    app.showNotification('Employees module coming soon!', 'info');
+                    break;
+                case 'subscription':
+                    app.showNotification('Subscription module coming soon!', 'info');
+                    break;
+                default:
+                    console.log('Unknown module:', moduleName);
+            }
+        }
+        
         function logout() {
             if (typeof app !== 'undefined') {
                 app.logout();
