@@ -109,13 +109,13 @@ class TaskFlowApp {
             });
         }
 
-        // Sidebar toggle
+        // Sidebar toggle (left app sidebar)
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
-                const teamSidebar = document.getElementById('teamSidebar');
-                if (teamSidebar) {
-                    teamSidebar.classList.toggle('active');
+                const appSidebar = document.getElementById('appSidebar');
+                if (appSidebar) {
+                    appSidebar.classList.toggle('active');
                 }
             });
         }

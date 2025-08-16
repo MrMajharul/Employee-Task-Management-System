@@ -85,9 +85,20 @@
                 <div class="header-time">12:53 <small>WORKING</small></div>
                 
                 <div class="user-section">
-                    <div class="user-info">
-                        <img src="https://ui-avatars.com/api/?name=User&background=667eea&color=fff" alt="User" class="user-avatar">
-                        <span class="user-name" id="userName">Loading...</span>
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <div class="user-info" id="profileTrigger">
+                            <img src="https://ui-avatars.com/api/?name=User&background=667eea&color=fff" alt="User" class="user-avatar">
+                            <span class="user-name" id="userName">Loading...</span>
+                            <i class="fas fa-chevron-down profile-caret"></i>
+                        </div>
+                        <div class="profile-menu" id="profileMenu">
+                            <button type="button" class="profile-menu-item" id="profileSettingsBtn">
+                                <i class="fas fa-cog"></i> Settings
+                            </button>
+                            <button type="button" class="profile-menu-item" id="profileLogoutBtn">
+                                <i class="fas fa-sign-out-alt"></i> Log out
+                            </button>
+                        </div>
                     </div>
                     
                     <button class="upgrade-btn">
@@ -104,14 +115,6 @@
                             <span class="notification-count">9</span>
                         </button>
                     </div>
-                    
-                    <button class="settings-btn" onclick="showSettingsModal()">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                    
-                    <button class="logout-btn" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
                 </div>
             </div>
         </header>
@@ -411,6 +414,22 @@
             <div class="team-list" id="teamList">
                 <!-- Team members will be populated here -->
             </div>
+        </div>
+
+        <!-- Left App Sidebar -->
+        <div class="app-sidebar" id="appSidebar">
+            <div class="app-sidebar-header">
+                <h3>Menu</h3>
+                <button class="close-app-sidebar" id="closeAppSidebar">&times;</button>
+            </div>
+            <nav class="app-sidebar-nav">
+                <a href="#" onclick="showMainView('tasks')"><i class="fas fa-tasks"></i> Tasks</a>
+                <a href="#" onclick="showMainView('projects')"><i class="fas fa-layer-group"></i> Projects</a>
+                <a href="#" onclick="showMainView('scrum')"><i class="fas fa-users-cog"></i> Scrum</a>
+                <a href="#" onclick="showMainView('assigned')"><i class="fas fa-user-check"></i> Set by me</a>
+                <a href="#" onclick="showMainView('efficiency')"><i class="fas fa-chart-line"></i> Efficiency</a>
+                <a href="#" onclick="showMainView('supervising')"><i class="fas fa-eye"></i> Supervising</a>
+            </nav>
         </div>
     </div>
 
@@ -755,6 +774,55 @@
                 app.logout();
             }
         }
+        
+        // Profile dropdown + left sidebar wiring
+        document.addEventListener('DOMContentLoaded', function() {
+            const profileDropdown = document.getElementById('profileDropdown');
+            const profileTrigger = document.getElementById('profileTrigger');
+            const settingsBtn = document.getElementById('profileSettingsBtn');
+            const logoutBtn = document.getElementById('profileLogoutBtn');
+            const appSidebar = document.getElementById('appSidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const closeAppSidebar = document.getElementById('closeAppSidebar');
+
+            if (profileTrigger && profileDropdown) {
+                profileTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    profileDropdown.classList.toggle('open');
+                });
+                document.addEventListener('click', () => profileDropdown.classList.remove('open'));
+            }
+
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    profileDropdown.classList.remove('open');
+                    showSettingsModal();
+                });
+            }
+
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    profileDropdown.classList.remove('open');
+                    logout();
+                });
+            }
+
+            if (sidebarToggle && appSidebar) {
+                sidebarToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    appSidebar.classList.toggle('active');
+                });
+            }
+
+            if (closeAppSidebar && appSidebar) {
+                closeAppSidebar.addEventListener('click', () => appSidebar.classList.remove('active'));
+            }
+        });
     </script>
     <script src="js/eTask-app.js"></script>
 </body>
