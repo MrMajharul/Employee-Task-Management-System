@@ -1,0 +1,104 @@
+Server running on port 3002
+Connected to MySQL database
+Registration error (procedure path): Error: Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error
+    at Packet.asError (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5) {
+  code: 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE',
+  errno: 1558,
+  sqlState: 'HY000',
+  sqlMessage: 'Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error',
+  sql: "CALL sp_create_user('Jane Doe', 'jane@example.com', 'jane', '$2a$10$0NLNslzYN3QQk9pQtiK0tu5y3uNxT3c1E0dGeAD2.BchOXQKdinHm', 'employee')"
+}
+Registration error (procedure path): Error: Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error
+    at Packet.asError (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5) {
+  code: 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE',
+  errno: 1558,
+  sqlState: 'HY000',
+  sqlMessage: 'Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error',
+  sql: "CALL sp_create_user('amir hasan', 'amir@gmail.com', 'amir', '$2a$10$eWYV6cMGjJsojv//BbmGVO2QIr4g6m5JAHDi8aEwzoRw/ZifiCQqm', 'employee')"
+}
+Dashboard query error: Error: Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error
+    at Packet.asError (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5) {
+  code: 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE',
+  errno: 1558,
+  sqlState: 'HY000',
+  sqlMessage: 'Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error',
+  sql: 'CALL sp_get_user_dashboard(8)'
+}
+Dashboard query error: Error: Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error
+    at Packet.asError (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5) {
+  code: 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE',
+  errno: 1558,
+  sqlState: 'HY000',
+  sqlMessage: 'Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error',
+  sql: 'CALL sp_get_user_dashboard(8)'
+}
+Dashboard query error: Error: Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error
+    at Packet.asError (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5) {
+  code: 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE',
+  errno: 1558,
+  sqlState: 'HY000',
+  sqlMessage: 'Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error',
+  sql: 'CALL sp_get_user_dashboard(8)'
+}
+Dashboard query error: Error: Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error
+    at Packet.asError (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packets/packet.js:740:17)
+    at Query.execute (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/commands/command.js:29:26)
+    at Connection.handlePacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:475:34)
+    at PacketParser.onPacket (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:93:12)
+    at PacketParser.executeStart (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/packet_parser.js:75:16)
+    at Socket.<anonymous> (/Users/user/Desktop/Employee-Task-Management-System/node_modules/mysql2/lib/base/connection.js:100:25)
+    at Socket.emit (node:events:507:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5) {
+  code: 'ER_COL_COUNT_DOESNT_MATCH_PLEASE_UPDATE',
+  errno: 1558,
+  sqlState: 'HY000',
+  sqlMessage: 'Column count of mysql.proc is wrong. Expected 21, found 20. Created with MariaDB 100108, now running 100428. Please use mysql_upgrade to fix this error',
+  sql: 'CALL sp_get_user_dashboard(8)'
+}

@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Optional: place to extend v4 theme via @theme, utilities, or sources.
+   Example:
+   @theme {
+     --color-brand: oklch(0.64 0.15 264);
+   }
+*/
+
+/* You can add component styles that layer on top of Tailwind utilities here. */

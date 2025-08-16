@@ -6,548 +6,65 @@
     <title>Employee Task Management System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Tailwind v4 compiled CSS -->
+    <link rel="stylesheet" href="css/tailwind.output.css">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+    <!-- Landing Page Only -->
     <div id="app">
-        <!-- Modern Login Form -->
-        <div id="loginForm" class="modern-login-container">
-            <div class="login-background">
-                <div class="login-overlay"></div>
-                <div class="floating-shapes">
-                    <div class="shape shape-1"></div>
-                    <div class="shape shape-2"></div>
-                    <div class="shape shape-3"></div>
-                    <div class="shape shape-4"></div>
+        <!-- Modern Hero Section -->
+        <header style="width:100vw; min-height:100vh; background: linear-gradient(120deg, #6a82fb 0%, #fc5c7d 100%); display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; overflow:hidden;">
+            <nav style="width:100%; max-width:1200px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; padding:32px 32px 0 32px;">
+                <div style="font-size:2rem; font-weight:900; color:#fff; letter-spacing:-1px;">ETask</div>
+                <div>
+                    <a href="login.html" style="background:rgba(255,255,255,0.95); color:#6a82fb; font-weight:700; padding:10px 32px; border-radius:24px; font-size:1.08rem; border:none; margin-right:12px; cursor:pointer; text-decoration:none; display:inline-block;">Sign In</a>
+                    <a href="login.html" style="background:rgba(255,255,255,0.95); color:#fc5c7d; font-weight:700; padding:10px 32px; border-radius:24px; font-size:1.08rem; border:none; cursor:pointer; text-decoration:none; display:inline-block;">Sign Up</a>
+                </div>
+            </nav>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh;">
+                <h1 style="color:#fff; font-size:3.2rem; font-weight:900; margin-bottom:18px; text-align:center; letter-spacing:-1px;">Sprint Planning<br>Powered by Your Data</h1>
+                <p style="color:#fff; font-size:1.35rem; max-width:600px; margin-bottom:36px; text-align:center; font-weight:500;">Make data-driven decisions for your team. Plan, track, and deliver work with clarity and confidence—no spreadsheets required.</p>
+                <div>
+                    <a href="login.html" style="background:#fff; color:#fc5c7d; font-weight:800; padding:16px 44px; border-radius:32px; font-size:1.18rem; border:none; margin-right:16px; box-shadow:0 4px 16px rgba(252,92,125,0.10); cursor:pointer; text-decoration:none; display:inline-block;">Get Started Free</a>
+                    <a href="login.html" style="background:rgba(255,255,255,0.85); color:#6a82fb; font-weight:700; padding:16px 44px; border-radius:32px; font-size:1.18rem; border:none; box-shadow:0 4px 16px rgba(106,130,251,0.10); cursor:pointer; text-decoration:none; display:inline-block;">Sign In</a>
                 </div>
             </div>
-            
-            <div class="modern-login-card">
-                <div class="login-card-header">
-                    <h1 class="welcome-title">Welcome back</h1>
-                    <p class="welcome-subtitle">Please enter your details to sign in</p>
+            <img src="https://gainmomentum.ai/sections/home/SprintPlanningView.png" alt="Sprint Planning Screenshot" style="max-width:700px; width:90vw; border-radius:24px; box-shadow:0 8px 40px rgba(0,0,0,0.10); margin-bottom:40px;">
+        </header>
+
+        <!-- Features Section -->
+        <section style="background:#fff; padding:80px 0 60px 0;">
+            <div style="max-width:1200px; margin:0 auto; display:flex; flex-wrap:wrap; gap:40px; justify-content:center;">
+                <div style="background:#f7f8fa; border-radius:20px; box-shadow:0 2px 12px rgba(106,130,251,0.07); padding:40px 32px; max-width:340px; min-width:260px; flex:1 1 300px; text-align:left; display:flex; flex-direction:column; align-items:flex-start;">
+                    <img src="https://gainmomentum.ai/sections/features/SprintPlanning-CapacityPlanning.png" alt="Point Target Calculations" style="width:48px; height:48px; margin-bottom:18px;">
+                    <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:10px; color:#6a82fb;">Automatic Point Target Calculations</h3>
+                    <p style="color:#444; font-size:1.05rem;">Know exactly how much work your team can handle based on historical velocity.</p>
                 </div>
-                
-                <!-- Social Login Buttons -->
-                <div class="social-login-section">
-                    <button class="social-btn google-btn" type="button">
-                        <i class="fab fa-google"></i>
-                    </button>
-                    <button class="social-btn apple-btn" type="button">
-                        <i class="fab fa-apple"></i>
-                    </button>
-                    <button class="social-btn facebook-btn" type="button">
-                        <i class="fab fa-facebook"></i>
-                    </button>
+                <div style="background:#f7f8fa; border-radius:20px; box-shadow:0 2px 12px rgba(252,92,125,0.07); padding:40px 32px; max-width:340px; min-width:260px; flex:1 1 300px; text-align:left; display:flex; flex-direction:column; align-items:flex-start;">
+                    <img src="https://gainmomentum.ai/sections/features/SprintPlanning-OOOTracking.png" alt="Capacity Planning" style="width:48px; height:48px; margin-bottom:18px;">
+                    <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:10px; color:#fc5c7d;">Frictionless Capacity Planning</h3>
+                    <p style="color:#444; font-size:1.05rem;">See point distribution across team members and task types to ensure sprints are properly balanced.</p>
                 </div>
-                
-                <div class="divider-section">
-                    <span class="divider-text">OR</span>
+                <div style="background:#f7f8fa; border-radius:20px; box-shadow:0 2px 12px rgba(106,130,251,0.07); padding:40px 32px; max-width:340px; min-width:260px; flex:1 1 300px; text-align:left; display:flex; flex-direction:column; align-items:flex-start;">
+                    <img src="https://gainmomentum.ai/sections/features/SprintPlanning-RealtimeUpdates.gif" alt="Realtime Updates" style="width:48px; height:48px; margin-bottom:18px;">
+                    <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:10px; color:#6a82fb;">Realtime Updates</h3>
+                    <p style="color:#444; font-size:1.05rem;">All calculations update automatically as you pull work in and out, add estimates, and assign tasks.</p>
                 </div>
-                
-                <!-- Login Form -->
-                <form id="loginFormElement" class="modern-login-form">
-                    <div class="input-group">
-                        <label for="username" class="input-label">Your Email Address OR Username</label>
-                        <input type="text" id="username" name="username" class="modern-input" placeholder="Your Email Address OR Username" required>
-                    </div>
-                    
-                    <div class="input-group">
-                        <label for="password" class="input-label">Password</label>
-                        <input type="password" id="password" name="password" class="modern-input" placeholder="••••••••••" required>
-                    </div>
-                    
-                    <div class="form-options">
-                        <label class="remember-me">
-                            <input type="checkbox" class="remember-checkbox">
-                            <span class="checkmark"></span>
-                            Remember me
-                        </label>
-                        <a href="#" class="forgot-password">Forgot password?</a>
-                    </div>
-                    
-                    <button type="submit" class="modern-signin-btn">
-                        Sign in
-                    </button>
-                    
-                    <div class="signup-prompt">
-                        Don't have an account? <a href="#" class="signup-link">Sign up</a>
-                    </div>
-                    
-                    <div id="loginError" class="modern-alert error-alert" style="display: none;"></div>
-                </form>
+                <div style="background:#f7f8fa; border-radius:20px; box-shadow:0 2px 12px rgba(252,92,125,0.07); padding:40px 32px; max-width:340px; min-width:260px; flex:1 1 300px; text-align:left; display:flex; flex-direction:column; align-items:flex-start;">
+                    <img src="https://gainmomentum.ai/sections/features/SprintPlanning-PointTargetCalculations.png" alt="Native Out-of-Office Tracking" style="width:48px; height:48px; margin-bottom:18px;">
+                    <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:10px; color:#fc5c7d;">Native Out-of-Office Tracking</h3>
+                    <p style="color:#444; font-size:1.05rem;">Never forget about upcoming holidays or who's on vacation.</p>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Main Dashboard -->
-        <div id="dashboard" class="dashboard-container" style="display: none;">
-            <!-- Header -->
-            <header class="dashboard-header">
-                <div class="header-left">
-                    <button id="sidebarToggle" class="sidebar-toggle">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1>Dashboard</h1>
-                </div>
-                <div class="header-right">
-                    <div class="notification-dropdown">
-                        <button id="notificationBtn" class="notification-btn">
-                            <i class="fas fa-bell"></i>
-                            <span id="notificationCount" class="notification-badge">0</span>
-                        </button>
-                        <div id="notificationDropdown" class="notification-dropdown-content">
-                            <div class="notification-header">
-                                <h6>Notifications</h6>
-                            </div>
-                            <div id="notificationList" class="notification-list">
-                                <!-- Notifications will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="user-dropdown">
-                        <button id="userDropdownBtn" class="user-dropdown-btn">
-                            <img src="img/user.png" alt="User" class="user-avatar">
-                            <span id="userName">User</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                        <div id="userDropdown" class="user-dropdown-content">
-                            <a href="#" id="profileLink"><i class="fas fa-user"></i> Profile</a>
-                            <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Sidebar -->
-            <aside id="sidebar" class="sidebar">
-                <nav class="sidebar-nav">
-                    <ul>
-                        <li class="nav-item active">
-                            <a href="#" data-page="dashboard" class="nav-link">
-                                <i class="fas fa-tachometer-alt"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" data-page="tasks" class="nav-link">
-                                <i class="fas fa-tasks"></i>
-                                <span>Tasks</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" data-page="kanban" class="nav-link">
-                                <i class="fas fa-columns"></i>
-                                <span>Kanban Board</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" data-page="analytics" class="nav-link">
-                                <i class="fas fa-chart-pie"></i>
-                                <span>Analytics</span>
-                            </a>
-                        </li>
-                        <li class="nav-item admin-only" style="display: none;">
-                            <a href="#" data-page="users" class="nav-link">
-                                <i class="fas fa-users"></i>
-                                <span>Users</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="#" data-page="profile" class="nav-link">
-                                <i class="fas fa-user"></i>
-                                <span>Profile</span>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
-            </aside>
-
-            <!-- Main Content -->
-            <main class="main-content">
-                <!-- Dashboard Page -->
-                <div id="dashboardPage" class="page active">
-                    <div class="dashboard-stats">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="usersCount">0</h3>
-                                <p>Employees</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-tasks"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="tasksCount">0</h3>
-                                <p>All Tasks</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="overdueCount">0</h3>
-                                <p>Overdue</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-clock"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="noDeadlineCount">0</h3>
-                                <p>No Deadline</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-calendar-day"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="dueTodayCount">0</h3>
-                                <p>Due Today</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-square"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="pendingCount">0</h3>
-                                <p>Pending</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-spinner"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="inProgressCount">0</h3>
-                                <p>In Progress</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-check-square"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="completedCount">0</h3>
-                                <p>Completed</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tasks Page -->
-                <div id="tasksPage" class="page">
-                    <div class="page-header">
-                        <h2>Tasks Management</h2>
-                        <button id="addTaskBtn" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Add Task
-                        </button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Title</th>
-                                    <th>Description</th>
-                                    <th>Assigned To</th>
-                                    <th>Status</th>
-                                    <th>Due Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tasksTableBody">
-                                <!-- Tasks will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Kanban Board Page -->
-                <div id="kanbanPage" class="page">
-                    <div class="page-header">
-                        <h2>Kanban Board</h2>
-                        <div class="board-controls">
-                            <button id="addTaskFromKanban" class="btn btn-primary">
-                                <i class="fas fa-plus"></i> Add Task
-                            </button>
-                            <div class="view-options">
-                                <button class="btn btn-outline filter-btn" data-filter="all">All</button>
-                                <button class="btn btn-outline filter-btn" data-filter="my">My Tasks</button>
-                                <button class="btn btn-outline filter-btn" data-filter="overdue">Overdue</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="kanban-board" id="kanbanBoard">
-                        <div class="kanban-column" data-status="pending">
-                            <div class="column-header">
-                                <h3><i class="fas fa-clock"></i> To Do</h3>
-                                <span class="task-count" id="pendingKanbanCount">0</span>
-                            </div>
-                            <div class="column-content" id="pendingColumn">
-                                <!-- Pending tasks will be loaded here -->
-                            </div>
-                        </div>
-                        <div class="kanban-column" data-status="in_progress">
-                            <div class="column-header">
-                                <h3><i class="fas fa-spinner"></i> In Progress</h3>
-                                <span class="task-count" id="inProgressKanbanCount">0</span>
-                            </div>
-                            <div class="column-content" id="inProgressColumn">
-                                <!-- In progress tasks will be loaded here -->
-                            </div>
-                        </div>
-                        <div class="kanban-column" data-status="completed">
-                            <div class="column-header">
-                                <h3><i class="fas fa-check"></i> Completed</h3>
-                                <span class="task-count" id="completedKanbanCount">0</span>
-                            </div>
-                            <div class="column-content" id="completedColumn">
-                                <!-- Completed tasks will be loaded here -->
-                            </div>
-                        </div>
-                        <div class="kanban-column" data-status="on_hold">
-                            <div class="column-header">
-                                <h3><i class="fas fa-pause"></i> On Hold</h3>
-                                <span class="task-count" id="onHoldKanbanCount">0</span>
-                            </div>
-                            <div class="column-content" id="onHoldColumn">
-                                <!-- On hold tasks will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Analytics Page -->
-                <div id="analyticsPage" class="page">
-                    <div class="page-header">
-                        <h2>Analytics & Reports</h2>
-                        <div class="analytics-filters">
-                            <select id="analyticsTimeRange" class="form-control">
-                                <option value="7">Last 7 Days</option>
-                                <option value="30" selected>Last 30 Days</option>
-                                <option value="90">Last 90 Days</option>
-                                <option value="365">Last Year</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="analytics-dashboard">
-                        <div class="analytics-grid">
-                            <div class="analytics-card">
-                                <div class="card-header">
-                                    <h3>Task Completion Rate</h3>
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <div class="card-body">
-                                    <div class="metric-large" id="completionRate">0%</div>
-                                    <div class="metric-trend" id="completionTrend">
-                                        <span class="trend-indicator">↗</span>
-                                        <span class="trend-text">+5% from last period</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="analytics-card">
-                                <div class="card-header">
-                                    <h3>Average Task Duration</h3>
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="card-body">
-                                    <div class="metric-large" id="avgDuration">0 days</div>
-                                    <div class="metric-trend" id="durationTrend">
-                                        <span class="trend-indicator">↘</span>
-                                        <span class="trend-text">-2 days from last period</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="analytics-card">
-                                <div class="card-header">
-                                    <h3>Team Productivity</h3>
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <div class="card-body">
-                                    <div class="metric-large" id="teamProductivity">85%</div>
-                                    <div class="metric-trend" id="productivityTrend">
-                                        <span class="trend-indicator">↗</span>
-                                        <span class="trend-text">+12% from last period</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="analytics-card">
-                                <div class="card-header">
-                                    <h3>Overdue Tasks</h3>
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <div class="card-body">
-                                    <div class="metric-large" id="overdueTasksAnalytics">0</div>
-                                    <div class="metric-trend" id="overdueTrend">
-                                        <span class="trend-indicator">↘</span>
-                                        <span class="trend-text">-3 from last period</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="charts-section">
-                            <div class="chart-container">
-                                <h3>Task Status Distribution</h3>
-                                <canvas id="statusChart" width="400" height="200"></canvas>
-                            </div>
-                            <div class="chart-container">
-                                <h3>Task Completion Trends</h3>
-                                <canvas id="trendsChart" width="400" height="200"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="team-performance">
-                            <h3>Team Performance</h3>
-                            <div class="performance-table" id="teamPerformanceTable">
-                                <!-- Team performance data will be loaded here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Users Page -->
-                <div id="usersPage" class="page">
-                    <div class="page-header">
-                        <h2>Users Management</h2>
-                        <button id="addUserBtn" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Add User
-                        </button>
-                    </div>
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Full Name</th>
-                                    <th>Username</th>
-                                    <th>Role</th>
-                                    <th>Created At</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                                <!-- Users will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Profile Page -->
-                <div id="profilePage" class="page">
-                    <div class="page-header">
-                        <h2>Profile Settings</h2>
-                    </div>
-                    <div class="profile-form">
-                        <form id="profileForm">
-                            <div class="form-group">
-                                <label for="profileFullName">Full Name</label>
-                                <input type="text" id="profileFullName" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="profilePassword">New Password (leave blank to keep current)</label>
-                                <input type="password" id="profilePassword" class="form-control">
-                            </div>
-                            <button type="submit" class="btn btn-primary">Update Profile</button>
-                        </form>
-                    </div>
-                </div>
-            </main>
-        </div>
-
-        <!-- Modals -->
-        <!-- Add/Edit Task Modal -->
-        <div id="taskModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="taskModalTitle">Add Task</h3>
-                    <span class="close">&times;</span>
-                </div>
-                <form id="taskForm">
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="taskTitle">Title</label>
-                            <input type="text" id="taskTitle" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskDescription">Description</label>
-                            <textarea id="taskDescription" class="form-control" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskAssignedTo">Assigned To</label>
-                            <select id="taskAssignedTo" class="form-control" required>
-                                <!-- Users will be loaded here -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskDueDate">Due Date</label>
-                            <input type="date" id="taskDueDate" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="taskStatus">Status</label>
-                            <select id="taskStatus" class="form-control">
-                                <option value="pending">Pending</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="completed">Completed</option>
-                                <option value="cancelled">Cancelled</option>
-                                <option value="on_hold">On Hold</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Task</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Add/Edit User Modal -->
-        <div id="userModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="userModalTitle">Add User</h3>
-                    <span class="close">&times;</span>
-                </div>
-                <form id="userForm">
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="userFullName">Full Name</label>
-                            <input type="text" id="userFullName" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="userUsername">Username</label>
-                            <input type="text" id="userUsername" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="userPassword">Password</label>
-                            <input type="password" id="userPassword" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="userRole">Role</label>
-                            <select id="userRole" class="form-control" required>
-                                <option value="employee">Employee</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save User</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <footer class="footer" style="background: #667eea; color: #fff; text-align: center; padding: 24px 0 12px 0; font-size: 1rem; border-radius: 0 0 12px 12px;">
+            &copy; 2025 Employee Task Management System &mdash; All rights reserved.
+        </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Landing Page Scripts Only -->
     <script src="js/app.js"></script>
 </body>
 </html>
