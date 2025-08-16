@@ -7,6 +7,8 @@ const session = require('express-session');
 const path = require('path');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const multer = require('multer');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -44,6 +46,36 @@ db.connect((err) => {
         return;
     }
     console.log('Connected to MySQL database');
+});
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'public', 'uploads', 'profile');
+try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+} catch (e) {
+    console.warn('Could not ensure uploads directory:', e.message);
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname) || '.jpg';
+        cb(null, `user_${req.user?.id || 'guest'}_${Date.now()}${ext}`);
+    }
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only image files are allowed'));
+        }
+        cb(null, true);
+    }
 });
 
 // Authentication middleware
@@ -1221,10 +1253,54 @@ app.post('/api/logout', (req, res) => {
     res.json({ message: 'Logged out successfully' });
 });
 
-// Profile photo upload (placeholder endpoint)
-app.post('/api/user/profile-photo', authenticateToken, (req, res) => {
-    // Placeholder for profile photo upload functionality
-    res.json({ message: 'Profile photo upload not implemented yet' });
+// Profile photo upload
+app.post('/api/user/profile-photo', authenticateToken, upload.single('profilePhoto'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const relativePath = `/uploads/profile/${req.file.filename}`;
+
+    // Optionally, persist the photo URL in DB for the user
+    const updateQuery = 'UPDATE users SET profile_photo = ? WHERE id = ?';
+    db.query(updateQuery, [relativePath, req.user.id], (err) => {
+        if (err) {
+            console.error('Failed to update profile photo in DB:', err);
+            // Still return success with path, as file is stored
+            return res.json({ photoUrl: relativePath, warning: 'DB update failed' });
+        }
+        res.json({ photoUrl: relativePath });
+    });
+});
+
+// Remove profile photo
+app.delete('/api/user/profile-photo', authenticateToken, (req, res) => {
+    // Fetch existing photo path
+    const getQuery = 'SELECT profile_photo FROM users WHERE id = ? LIMIT 1';
+    db.query(getQuery, [req.user.id], (err, results) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (results.length === 0) return res.status(404).json({ error: 'User not found' });
+
+        const photoPath = results[0].profile_photo;
+        const updateQuery = 'UPDATE users SET profile_photo = NULL WHERE id = ?';
+        db.query(updateQuery, [req.user.id], (updErr) => {
+            if (updErr) return res.status(500).json({ error: 'Failed to update user' });
+
+            // Try to delete file if it exists
+            if (photoPath) {
+                const fullPath = path.join(__dirname, 'public', photoPath.replace(/^\/+/, ''));
+                fs.unlink(fullPath, () => {});
+            }
+            res.json({ success: true });
+        });
+    });
+});
+
+// Logout all sessions (basic token invalidation placeholder)
+app.post('/api/user/logout-all-sessions', authenticateToken, (req, res) => {
+    // In a real system, maintain a token blacklist or rotate secrets per user
+    // Here we simply respond success; frontend clears local storage
+    res.json({ success: true });
 });
 
 // Export user data (placeholder endpoint)

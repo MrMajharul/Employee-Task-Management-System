@@ -125,6 +125,14 @@ class TaskFlowApp {
                 e.target.classList.contains('btn-cancel')) {
                 this.closeModal();
             }
+            
+            // Close sidebar when clicking outside
+            if (!e.target.closest('.app-sidebar') && !e.target.closest('#sidebarToggle')) {
+                const appSidebar = document.getElementById('appSidebar');
+                if (appSidebar && appSidebar.classList.contains('active')) {
+                    appSidebar.classList.remove('active');
+                }
+            }
         });
 
         // Search functionality
@@ -155,10 +163,29 @@ class TaskFlowApp {
         // Sidebar toggle (left app sidebar)
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
+            console.log('Sidebar toggle button found, attaching event listener');
             sidebarToggle.addEventListener('click', () => {
+                console.log('Sidebar toggle clicked');
                 const appSidebar = document.getElementById('appSidebar');
                 if (appSidebar) {
+                    console.log('App sidebar found, toggling active class');
                     appSidebar.classList.toggle('active');
+                    console.log('Sidebar active state:', appSidebar.classList.contains('active'));
+                } else {
+                    console.error('App sidebar not found');
+                }
+            });
+        } else {
+            console.error('Sidebar toggle button not found');
+        }
+
+        // Close app sidebar
+        const closeAppSidebar = document.getElementById('closeAppSidebar');
+        if (closeAppSidebar) {
+            closeAppSidebar.addEventListener('click', () => {
+                const appSidebar = document.getElementById('appSidebar');
+                if (appSidebar) {
+                    appSidebar.classList.remove('active');
                 }
             });
         }
@@ -1141,7 +1168,8 @@ class TaskFlowApp {
             'scrum': 'Scrum Board', 
             'assigned': 'Tasks Set by Me',
             'efficiency': 'Efficiency Analytics',
-            'supervising': 'Team Supervision'
+            'supervising': 'Team Supervision',
+            'messenger': 'Messenger'
         };
 
         document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
@@ -1902,6 +1930,25 @@ window.debugModals = () => {
         const photoPreview = settingsModal.querySelector('#currentProfilePhoto');
         console.log('Photo Upload Input:', photoUpload);
         console.log('Photo Preview:', photoPreview);
+    }
+};
+
+window.debugSidebar = () => {
+    console.log('=== SIDEBAR DEBUG ===');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const appSidebar = document.getElementById('appSidebar');
+    const closeAppSidebar = document.getElementById('closeAppSidebar');
+    
+    console.log('Sidebar Toggle Button:', sidebarToggle);
+    console.log('App Sidebar:', appSidebar);
+    console.log('Close App Sidebar Button:', closeAppSidebar);
+    
+    if (appSidebar) {
+        const computedStyle = getComputedStyle(appSidebar);
+        console.log('Sidebar active class:', appSidebar.classList.contains('active'));
+        console.log('Sidebar left position:', computedStyle.left);
+        console.log('Sidebar z-index:', computedStyle.zIndex);
+        console.log('Sidebar display:', computedStyle.display);
     }
 };
 
