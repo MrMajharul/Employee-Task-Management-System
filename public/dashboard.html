@@ -805,6 +805,31 @@
                 app.showSettingsModal();
             }
         }
+        
+        // Debug function to check task loading status
+        function debugTasks() {
+            if (typeof app !== 'undefined') {
+                console.log('=== TASK DEBUG INFO ===');
+                console.log('App instance exists:', true);
+                console.log('Current user:', app.currentUser);
+                console.log('Auth token exists:', !!app.authToken);
+                console.log('Tasks array:', app.tasks);
+                console.log('Tasks count:', app.tasks ? app.tasks.length : 0);
+                console.log('Current view:', app.currentView);
+                console.log('TaskList element exists:', !!document.getElementById('taskList'));
+                console.log('Dashboard element visible:', document.getElementById('dashboard').style.display);
+                console.log('Tasks view visible:', document.getElementById('tasksView').style.display);
+                console.log('=======================');
+                
+                // Force refresh
+                app.refreshTasks();
+            } else {
+                console.log('App instance not available yet');
+            }
+        }
+        
+        // Make debug function available globally
+        window.debugTasks = debugTasks;
 
         // Navigation function for sidebar modules
         function navigateToModule(moduleName) {

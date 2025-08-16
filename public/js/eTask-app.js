@@ -621,7 +621,7 @@ class TaskFlowApp {
     filterAndDisplayTasks() {
         let filteredTasks = [...this.tasks];
         
-        console.log('Filtering tasks. Total:', filteredTasks.length, 'Search:', this.filters.search);
+        console.log('filterAndDisplayTasks: Filtering tasks. Total:', filteredTasks.length, 'Search term:', this.filters.search);
         
         // Apply search filter
         if (this.filters.search && this.filters.search.trim() !== '') {
@@ -648,7 +648,7 @@ class TaskFlowApp {
             filteredTasks = filteredTasks.filter(task => task.assigned_to == this.filters.assignee);
         }
         
-        console.log('Final filtered tasks:', filteredTasks.length);
+        console.log('Final filtered tasks for display:', filteredTasks.length);
         
         // Display based on current view
         if (this.currentView === 'list') {
