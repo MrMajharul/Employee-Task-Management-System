@@ -328,7 +328,6 @@
                 <div class="form-group">
                     <select id="registerRole" required>
                         <option value="">Select Role</option>
-                        <option value="hr">HR</option>
                         <option value="employee">Employee</option>
                         <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
@@ -476,8 +475,16 @@
             // Basic login form submission
             document.getElementById('loginFormElement').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const username = document.getElementById('username').value;
+                const username = document.getElementById('username').value.trim();
                 const password = document.getElementById('password').value;
+
+                // Clear any existing errors
+                document.getElementById('loginError').style.display = 'none';
+
+                if (!username || !password) {
+                    showError('loginError', 'Please enter both username/email and password');
+                    return;
+                }
 
                 try {
                     const response = await fetch('/api/login', {
@@ -491,13 +498,18 @@
                     const data = await response.json();
                     
                     if (response.ok) {
-                        localStorage.setItem('authToken', data.token);
-                        localStorage.setItem('user', JSON.stringify(data.user));
-                        window.location.href = 'dashboard.html';
+                        if (data.token && data.user) {
+                            localStorage.setItem('authToken', data.token);
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            window.location.href = 'dashboard.html';
+                        } else {
+                            showError('loginError', 'Login response missing required data');
+                        }
                     } else {
-                        showError('loginError', data.message || 'Login failed');
+                        showError('loginError', data.error || data.message || 'Login failed');
                     }
                 } catch (error) {
+                    console.error('Login error:', error);
                     showError('loginError', 'Connection error. Please try again.');
                 }
             });
@@ -505,14 +517,30 @@
             // Basic register form submission
             document.getElementById('registerFormElement').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                
+                // Clear any existing errors
+                document.getElementById('registerError').style.display = 'none';
+                document.getElementById('registerSuccess').style.display = 'none';
+                
                 const formData = {
-                    full_name: document.getElementById('registerFullName').value,
-                    email: document.getElementById('registerEmail').value,
-                    username: document.getElementById('registerUsername').value,
+                    full_name: document.getElementById('registerFullName').value.trim(),
+                    email: document.getElementById('registerEmail').value.trim(),
+                    username: document.getElementById('registerUsername').value.trim(),
                     password: document.getElementById('registerPassword').value,
                     confirmPassword: document.getElementById('confirmPassword').value,
                     role: document.getElementById('registerRole').value
                 };
+
+                // Basic validation
+                if (!formData.full_name || !formData.email || !formData.username || !formData.password || !formData.role) {
+                    showError('registerError', 'Please fill in all fields');
+                    return;
+                }
+
+                if (formData.password.length < 6) {
+                    showError('registerError', 'Password must be at least 6 characters long');
+                    return;
+                }
 
                 if (formData.password !== formData.confirmPassword) {
                     showError('registerError', 'Passwords do not match');
@@ -534,15 +562,28 @@
                     const data = await response.json();
                     
                     if (response.ok) {
-                        showSuccess('registerSuccess', 'Account created successfully! Please sign in.');
-                        setTimeout(() => {
-                            registerForm.classList.add('hidden');
-                            loginForm.classList.remove('hidden');
-                        }, 2000);
+                        // Check if we got a token (auto-login) or just a success message
+                        if (data.token && data.user) {
+                            // Auto-login the user
+                            localStorage.setItem('authToken', data.token);
+                            localStorage.setItem('user', JSON.stringify(data.user));
+                            showSuccess('registerSuccess', 'Account created successfully! Redirecting...');
+                            setTimeout(() => {
+                                window.location.href = 'dashboard.html';
+                            }, 1500);
+                        } else {
+                            // Manual login required
+                            showSuccess('registerSuccess', 'Account created successfully! Please sign in.');
+                            setTimeout(() => {
+                                registerForm.classList.add('hidden');
+                                loginForm.classList.remove('hidden');
+                            }, 2000);
+                        }
                     } else {
                         showError('registerError', data.error || data.message || 'Registration failed');
                     }
                 } catch (error) {
+                    console.error('Registration error:', error);
                     showError('registerError', 'Connection error. Please try again.');
                 }
             });

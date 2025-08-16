@@ -64,9 +64,9 @@ app.post('/api/google-login', async (req, res) => {
     const { username, full_name, email, role, picture } = req.body;
     
     try {
-        // Check if user exists
-        const checkQuery = 'SELECT * FROM users WHERE username = ?';
-        db.query(checkQuery, [username], async (err, results) => {
+    // Check if user exists by email (preferred) or username
+    const checkQuery = 'SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1';
+    db.query(checkQuery, [email, username], async (err, results) => {
             if (err) {
                 return res.status(500).json({ error: 'Database error' });
             }
@@ -74,19 +74,23 @@ app.post('/api/google-login', async (req, res) => {
             let user;
             if (results.length === 0) {
                 // Create new user
-                const insertQuery = 'INSERT INTO users (full_name, username, password, role) VALUES (?, ?, ?, ?)';
+        const insertQuery = 'INSERT INTO users (full_name, email, username, password, role) VALUES (?, ?, ?, ?, ?)';
                 const hashedPassword = await bcrypt.hash(Math.random().toString(36), 10); // Random password for Google users
                 
-                db.query(insertQuery, [full_name, username, hashedPassword, role], (err, result) => {
+        // Fallback role validation
+        const safeRole = ['admin','manager','employee'].includes(role) ? role : 'employee';
+
+        db.query(insertQuery, [full_name, email, username, hashedPassword, safeRole], (err, result) => {
                     if (err) {
                         return res.status(500).json({ error: 'Database error' });
                     }
                     
                     user = {
                         id: result.insertId,
-                        username: username,
+            username: username,
+            email: email,
                         full_name: full_name,
-                        role: role
+            role: safeRole
                     };
                     
                     const token = jwt.sign(
@@ -115,6 +119,7 @@ app.post('/api/google-login', async (req, res) => {
                         id: user.id,
                         username: user.username,
                         full_name: user.full_name,
+                        email: user.email,
                         role: user.role
                     }
                 });
@@ -136,20 +141,32 @@ app.get('/api/config', (req, res) => {
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     
-    const query = 'SELECT * FROM users WHERE username = ?';
-    db.query(query, [username], async (err, results) => {
+    console.log('Login attempt for:', username);
+    
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+    }
+    
+    // Allow login with username or email
+    const query = 'SELECT * FROM users WHERE (username = ? OR email = ?) AND status = "active" LIMIT 1';
+    db.query(query, [username, username], async (err, results) => {
         if (err) {
+            console.error('Login query error:', err);
             return res.status(500).json({ error: 'Database error' });
         }
         
         if (results.length === 0) {
+            console.log('Login failed: User not found -', username);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
         const user = results[0];
+        console.log('Found user:', { id: user.id, username: user.username, email: user.email });
+        
         const validPassword = await bcrypt.compare(password, user.password);
         
         if (!validPassword) {
+            console.log('Login failed: Invalid password for user -', username);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
@@ -159,19 +176,22 @@ app.post('/api/login', async (req, res) => {
             { expiresIn: '24h' }
         );
         
+        console.log('Login successful for user:', user.username);
+        
         res.json({
             token,
             user: {
                 id: user.id,
                 username: user.username,
                 full_name: user.full_name,
+                email: user.email,
                 role: user.role
             }
         });
     });
 });
 
-// Registration endpoint with stored procedure and transaction
+// Registration endpoint with direct insert (bypassing stored procedure issues)
 app.post('/api/register', async (req, res) => {
     const { full_name, email, username, password, role } = req.body;
     
@@ -191,58 +211,77 @@ app.post('/api/register', async (req, res) => {
         return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
     
+    // Validate role to match ENUM
+    const safeRole = ['admin','manager','employee'].includes(role) ? role : 'employee';
+    
     try {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Use stored procedure for user creation with transaction
-        const query = 'CALL sp_create_user(?, ?, ?, ?, ?)';
-        
-        db.query(query, [full_name, email, username, hashedPassword, role], (err, results) => {
-            if (err) {
-                console.error('Registration error:', err);
-                if (err.message.includes('Email already exists')) {
-                    return res.status(409).json({ error: 'Email already exists' });
-                }
-                if (err.message.includes('Username already exists')) {
-                    return res.status(409).json({ error: 'Username already exists' });
-                }
-                return res.status(500).json({ error: 'Failed to create account' });
+        // Check if user already exists
+        const checkQuery = 'SELECT id FROM users WHERE email = ? OR username = ? LIMIT 1';
+        db.query(checkQuery, [email, username], async (checkErr, exists) => {
+            if (checkErr) {
+                console.error('Registration check error:', checkErr);
+                return res.status(500).json({ error: 'Database error' });
             }
             
-            const userId = results[0][0].user_id;
+            if (exists.length > 0) {
+                return res.status(409).json({ error: 'Email or username already exists' });
+            }
             
-            // Get the created user details
-            const getUserQuery = `
-                SELECT id, username, full_name, email, role, status, created_at 
-                FROM users 
-                WHERE id = ?
-            `;
-            
-            db.query(getUserQuery, [userId], (err, userResults) => {
-                if (err) {
-                    console.error('Error fetching user:', err);
-                    return res.status(500).json({ error: 'Account created but failed to retrieve details' });
-                }
-                
-                const newUser = userResults[0];
-                
-                const token = jwt.sign(
-                    { id: newUser.id, username: newUser.username, role: newUser.role },
-                    process.env.JWT_SECRET || 'your-secret-key',
-                    { expiresIn: '24h' }
-                );
-                
-                res.status(201).json({
-                    message: 'Account created successfully',
-                    token,
-                    user: {
-                        id: newUser.id,
-                        username: newUser.username,
-                        full_name: newUser.full_name,
-                        email: newUser.email,
-                        role: newUser.role
+            // Insert new user
+            const insertQuery = 'INSERT INTO users (full_name, email, username, password, role) VALUES (?, ?, ?, ?, ?)';
+            db.query(insertQuery, [full_name, email, username, hashedPassword, safeRole], (insertErr, result) => {
+                if (insertErr) {
+                    console.error('Registration insert error:', insertErr);
+                    const errMsg = (insertErr.message || '').toLowerCase();
+                    if (errMsg.includes("for key 'email'") || errMsg.includes('email')) {
+                        return res.status(409).json({ error: 'Email already exists' });
                     }
+                    if (errMsg.includes("for key 'username'") || errMsg.includes('username')) {
+                        return res.status(409).json({ error: 'Username already exists' });
+                    }
+                    return res.status(500).json({ error: 'Failed to create account' });
+                }
+
+                const userId = result.insertId;
+                
+                // Get the created user details
+                const getUserQuery = `
+                    SELECT id, username, full_name, email, role, status, created_at 
+                    FROM users 
+                    WHERE id = ?
+                `;
+                
+                db.query(getUserQuery, [userId], (getUserErr, userResults) => {
+                    if (getUserErr) {
+                        console.error('Error fetching user:', getUserErr);
+                        return res.status(500).json({ error: 'Account created but failed to retrieve details' });
+                    }
+                    
+                    const newUser = userResults[0];
+                    
+                    // Generate token for auto-login
+                    const token = jwt.sign(
+                        { id: newUser.id, username: newUser.username, role: newUser.role },
+                        process.env.JWT_SECRET || 'your-secret-key',
+                        { expiresIn: '24h' }
+                    );
+                    
+                    console.log('User registered successfully:', { id: newUser.id, username: newUser.username, email: newUser.email });
+                    
+                    res.status(201).json({
+                        message: 'Account created successfully',
+                        token,
+                        user: {
+                            id: newUser.id,
+                            username: newUser.username,
+                            full_name: newUser.full_name,
+                            email: newUser.email,
+                            role: newUser.role
+                        }
+                    });
                 });
             });
         });
@@ -256,16 +295,24 @@ app.post('/api/register', async (req, res) => {
 app.get('/api/dashboard', authenticateToken, (req, res) => {
     const userId = req.user.id;
     
-    // Use stored procedure to get dashboard data
-    const query = 'CALL sp_get_user_dashboard(?)';
+    // Get dashboard data using direct queries instead of stored procedures
+    const dashboardQuery = `
+        SELECT 
+            COUNT(CASE WHEN t.status = 'pending' AND t.assigned_to = ? THEN 1 END) as pending_tasks,
+            COUNT(CASE WHEN t.status = 'in_progress' AND t.assigned_to = ? THEN 1 END) as active_tasks,
+            COUNT(CASE WHEN t.status = 'completed' AND t.assigned_to = ? THEN 1 END) as completed_tasks,
+            COUNT(CASE WHEN t.due_date < NOW() AND t.status IN ('pending', 'in_progress') AND t.assigned_to = ? THEN 1 END) as overdue_tasks,
+            COUNT(CASE WHEN t.assigned_by = ? THEN 1 END) as tasks_created
+        FROM tasks t
+    `;
     
-    db.query(query, [userId], (err, results) => {
+    db.query(dashboardQuery, [userId, userId, userId, userId, userId], (err, results) => {
         if (err) {
             console.error('Dashboard query error:', err);
             return res.status(500).json({ error: 'Database error' });
         }
         
-        const dashboardData = results[0][0];
+        const dashboardData = results[0];
         
         // Also get recent tasks using SQL views
         const recentTasksQuery = `
@@ -434,13 +481,24 @@ app.get('/api/tasks/:id', authenticateToken, (req, res) => {
     });
 });
 
-// Get all users (admin only)
+// Get all users (admin and manager can see all, employees see limited info)
 app.get('/api/users', authenticateToken, (req, res) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: 'Access denied' });
+    let query;
+    let columns;
+    
+    if (req.user.role === 'admin') {
+        // Admin can see all user details
+        columns = 'id, full_name, username, email, role, created_at';
+    } else if (req.user.role === 'manager') {
+        // Manager can see basic info for task assignment
+        columns = 'id, full_name, username, role';
+    } else {
+        // Employee can only see basic info for task assignment
+        columns = 'id, full_name, username';
     }
     
-    const query = 'SELECT id, full_name, username, email, role, created_at FROM users ORDER BY full_name';
+    query = `SELECT ${columns} FROM users WHERE status = 'active' ORDER BY full_name`;
+    
     db.query(query, (err, results) => {
         if (err) {
             return res.status(500).json({ error: 'Database error' });

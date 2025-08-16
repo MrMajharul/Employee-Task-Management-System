@@ -495,8 +495,11 @@ class TaskFlowApp {
 
     async loadUsers() {
         try {
+            console.log('Loading users from API...');
             const response = await this.apiCall('/users');
+            console.log('Users API response:', response);
             this.users = response.users || response || [];
+            console.log('Parsed users array:', this.users);
             this.populateUserDropdowns();
             this.displayTeamAvatars();
         } catch (error) {
@@ -710,9 +713,19 @@ class TaskFlowApp {
 
     populateUserDropdowns() {
         const assignedToSelect = document.getElementById('taskAssignedTo');
-        if (!assignedToSelect) return;
+        if (!assignedToSelect) {
+            console.warn('taskAssignedTo select element not found');
+            return;
+        }
+        
+        console.log('Populating user dropdown with users:', this.users);
         
         assignedToSelect.innerHTML = '<option value="">Select user...</option>';
+        
+        if (!this.users || this.users.length === 0) {
+            console.warn('No users available to populate dropdown');
+            return;
+        }
         
         this.users.forEach(user => {
             const option = document.createElement('option');
@@ -720,6 +733,8 @@ class TaskFlowApp {
             option.textContent = `${user.full_name} (${user.username})`;
             assignedToSelect.appendChild(option);
         });
+        
+        console.log('User dropdown populated with', this.users.length, 'users');
     }
 
     displayTeamAvatars() {
@@ -1639,6 +1654,14 @@ function openNewTaskModal() {
     document.getElementById('taskModalTitle').textContent = 'Add New Task';
     document.getElementById('taskForm').reset();
     delete document.getElementById('taskForm').dataset.taskId;
+    
+    // Ensure users are loaded in dropdown
+    if (app.users && app.users.length > 0) {
+        app.populateUserDropdowns();
+    } else {
+        app.loadUsers();
+    }
+    
     app.showModal('taskModal');
 }
 
