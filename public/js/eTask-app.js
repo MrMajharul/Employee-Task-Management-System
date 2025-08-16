@@ -1554,10 +1554,27 @@ class TaskFlowApp {
             return;
         }
 
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const photoPreview = document.getElementById('currentProfilePhoto');
+            const userAvatar = document.querySelector('.user-avatar');
+            if (photoPreview) {
+                photoPreview.src = event.target.result;
+            }
+            if (userAvatar) {
+                userAvatar.src = event.target.result;
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // Try to upload to server
         const formData = new FormData();
         formData.append('profilePhoto', file);
 
         try {
+            this.showNotification('Uploading photo...', 'info');
+            
             const response = await fetch(`${this.API_BASE_URL}/user/profile-photo`, {
                 method: 'POST',
                 headers: {
@@ -1566,22 +1583,29 @@ class TaskFlowApp {
                 body: formData
             });
 
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to upload photo');
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Update UI with server response
+                if (data.photoUrl) {
+                    document.getElementById('currentProfilePhoto').src = data.photoUrl;
+                    const userAvatar = document.querySelector('.user-avatar');
+                    if (userAvatar) userAvatar.src = data.photoUrl;
+                    
+                    this.currentUser.profile_photo = data.photoUrl;
+                    localStorage.setItem('user', JSON.stringify(this.currentUser));
+                }
+                
+                this.showNotification('Profile photo updated successfully!', 'success');
+            } else {
+                // If server upload fails, keep the local preview
+                console.warn('Server upload failed, keeping local preview');
+                this.showNotification('Photo updated locally (server upload failed)', 'warning');
             }
-
-            // Update UI
-            document.getElementById('currentProfilePhoto').src = data.photoUrl;
-            document.querySelector('.user-avatar').src = data.photoUrl;
-            
-            this.currentUser.profile_photo = data.photoUrl;
-            localStorage.setItem('user', JSON.stringify(this.currentUser));
-
-            this.showNotification('Profile photo updated successfully!', 'success');
         } catch (error) {
-            this.showNotification(error.message, 'error');
+            console.error('Photo upload error:', error);
+            // Keep the local preview even if server upload fails
+            this.showNotification('Photo updated locally (server not available)', 'warning');
         }
     }
 
@@ -1809,30 +1833,6 @@ class TaskFlowApp {
         container.appendChild(skillTag);
     }
     
-    // Handle profile photo upload
-    handlePhotoUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const photoPreview = document.getElementById('currentProfilePhoto');
-                if (photoPreview) {
-                    photoPreview.src = e.target.result;
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-    
-    // Remove profile photo
-    removeProfilePhoto() {
-        const photoPreview = document.getElementById('currentProfilePhoto');
-        if (photoPreview) {
-            // Reset to default avatar
-            photoPreview.src = 'https://ui-avatars.com/api/?name=Admin+User&background=667eea&color=fff';
-        }
-    }
-
     // Open invite modal
     openInviteModal() {
         this.showModal('inviteModal');
