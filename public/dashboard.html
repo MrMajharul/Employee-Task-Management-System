@@ -11,12 +11,17 @@
     <link href="css/messenger.css" rel="stylesheet">
     <script>
         // Authentication check - redirect to login if not authenticated
-        (function() {
+        // But allow DOM to load first for better user experience
+        document.addEventListener('DOMContentLoaded', function() {
             const authToken = localStorage.getItem('authToken');
             const user = localStorage.getItem('user');
             
             if (!authToken || !user) {
-                window.location.href = 'login.html';
+                // Add a delay to allow users to see the dashboard briefly
+                console.log('No authentication found, redirecting to login...');
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 100);
                 return;
             }
             
@@ -36,9 +41,11 @@
                 console.error('Authentication verification failed:', error);
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('user');
-                window.location.href = 'login.html';
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 100);
             });
-        })();
+        });
     </script>
 </head>
 <body>
@@ -48,7 +55,7 @@
         <header class="etask-header">
             <div class="header-left">
                 <div class="logo-section">
-                    <button class="sidebar-toggle" id="sidebarToggle">
+                    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Open menu" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h2 class="logo-text">eTask <span class="version"></span></h2>
@@ -133,8 +140,8 @@
                         <button class="action-btn new-task-btn" onclick="openNewTaskModal()">
                             <i class="fas fa-plus"></i> NEW TASK
                         </button>
-                        <button class="action-btn refresh-tasks-btn" onclick="app.refreshTasks()" title="Refresh Tasks">
-                            <i class="fas fa-sync-alt"></i> REFRESH
+                                                <button class="action-btn refresh-tasks-btn" onclick="window.app && window.app.refreshTasks()" title="Refresh Tasks">
+                            <i class="fas fa-sync-alt"></i> Refresh
                         </button>
                         <button class="action-btn in-progress-btn">
                             <i class="fas fa-play"></i> In progress
@@ -587,6 +594,7 @@
         </div>
 
         <!-- Left App Sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <div class="app-sidebar" id="appSidebar">
             <div class="app-sidebar-header">
                 <h3>eTask Menu</h3>
@@ -755,7 +763,7 @@
                                 <button type="button" class="btn-photo-upload" onclick="document.getElementById('photoUpload').click()">
                                     <i class="fas fa-upload"></i> Upload Photo
                                 </button>
-                                <button type="button" class="btn-photo-remove" onclick="app.removeProfilePhoto()">
+                                <button type="button" class="btn-photo-remove" onclick="window.app && window.app.removeProfilePhoto()">
                                     <i class="fas fa-trash"></i> Remove
                                 </button>
                                 <input type="file" id="photoUpload" accept="image/*" style="display: none;">
@@ -935,73 +943,46 @@
     <script>
         // Global utility functions
         function showMainView(viewName) {
-            if (typeof app !== 'undefined') {
-                app.showMainView(viewName);
+            if (typeof window.app !== 'undefined') {
+                window.app.showMainView(viewName);
             }
         }
 
         function switchView(viewType) {
-            if (typeof app !== 'undefined') {
-                app.switchView(viewType);
+            if (typeof window.app !== 'undefined') {
+                window.app.switchView(viewType);
             }
         }
 
         function openNewTaskModal() {
-            if (typeof app !== 'undefined') {
+            if (typeof window.app !== 'undefined') {
                 document.getElementById('taskModalTitle').textContent = 'Add New Task';
                 document.getElementById('taskForm').reset();
                 delete document.getElementById('taskForm').dataset.taskId;
-                app.showModal('taskModal');
+                window.app.showModal('taskModal');
             }
         }
 
         function filterBy(filterType) {
-            if (typeof app !== 'undefined') {
-                app.filterBy(filterType);
+            if (typeof window.app !== 'undefined') {
+                window.app.filterBy(filterType);
             }
         }
 
         function markAllRead() {
-            if (typeof app !== 'undefined') {
-                app.markAllRead();
+            if (typeof window.app !== 'undefined') {
+                window.app.markAllRead();
             }
         }
 
         function showSettingsModal() {
-            if (typeof app !== 'undefined') {
-                app.showSettingsModal();
+            if (typeof window.app !== 'undefined') {
+                window.app.showSettingsModal();
             }
         }
-        
-        // Debug function to check task loading status
-        function debugTasks() {
-            if (typeof app !== 'undefined') {
-                console.log('=== TASK DEBUG INFO ===');
-                console.log('App instance exists:', true);
-                console.log('Current user:', app.currentUser);
-                console.log('Auth token exists:', !!app.authToken);
-                console.log('Tasks array:', app.tasks);
-                console.log('Tasks count:', app.tasks ? app.tasks.length : 0);
-                console.log('Current view:', app.currentView);
-                console.log('TaskList element exists:', !!document.getElementById('taskList'));
-                console.log('Dashboard element visible:', document.getElementById('dashboard').style.display);
-                console.log('Tasks view visible:', document.getElementById('tasksView').style.display);
-                console.log('=======================');
-                
-                // Force refresh
-                app.refreshTasks();
-            } else {
-                console.log('App instance not available yet');
-            }
-        }
-        
-        // Make debug function available globally
-        window.debugTasks = debugTasks;
 
         // Navigation function for sidebar modules
         function navigateToModule(moduleName) {
-            console.log('Navigating to:', moduleName);
-            
             // Update active state in sidebar
             document.querySelectorAll('.app-sidebar-nav a').forEach(link => {
                 link.classList.remove('active');
@@ -1056,7 +1037,8 @@
                     app.showNotification('Subscription module coming soon!', 'info');
                     break;
                 default:
-                    console.log('Unknown module:', moduleName);
+                    // Unknown module - silently ignore
+                    break;
             }
         }
         
@@ -1066,7 +1048,7 @@
             }
         }
         
-        // Profile dropdown + left sidebar wiring
+    // Profile dropdown wiring (sidebar handlers handled in eTask-app.js)
         document.addEventListener('DOMContentLoaded', function() {
             // Ensure user name renders quickly from localStorage
             try {
@@ -1085,6 +1067,7 @@
             const appSidebar = document.getElementById('appSidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');
             const closeAppSidebar = document.getElementById('closeAppSidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
             const mainNav = document.querySelector('.main-navigation');
 
             if (profileTrigger && profileDropdown) {
@@ -1113,24 +1096,7 @@
                 });
             }
 
-            if (sidebarToggle && appSidebar) {
-                sidebarToggle.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    appSidebar.classList.toggle('active');
-                });
-                // Keyboard accessibility
-                sidebarToggle.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        appSidebar.classList.toggle('active');
-                    }
-                });
-            }
-
-            if (closeAppSidebar && appSidebar) {
-                closeAppSidebar.addEventListener('click', () => appSidebar.classList.remove('active'));
-            }
+            // Sidebar toggle/overlay/close handled centrally in eTask-app.js
 
             // Handle main nav clicks centrally to ensure routing works
             if (mainNav) {

@@ -129,8 +129,13 @@ class TaskFlowApp {
             // Close sidebar when clicking outside
             if (!e.target.closest('.app-sidebar') && !e.target.closest('#sidebarToggle')) {
                 const appSidebar = document.getElementById('appSidebar');
+                const sidebarOverlay = document.getElementById('sidebarOverlay');
                 if (appSidebar && appSidebar.classList.contains('active')) {
                     appSidebar.classList.remove('active');
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                    // Update aria-expanded state
+                    const toggleBtn = document.getElementById('sidebarToggle');
+                    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
                 }
             }
         });
@@ -162,21 +167,26 @@ class TaskFlowApp {
 
         // Sidebar toggle (left app sidebar)
         const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
         if (sidebarToggle) {
-            console.log('Sidebar toggle button found, attaching event listener');
-            sidebarToggle.addEventListener('click', () => {
-                console.log('Sidebar toggle clicked');
+            sidebarToggle.addEventListener('click', (e) => {
+                e.preventDefault();
                 const appSidebar = document.getElementById('appSidebar');
                 if (appSidebar) {
-                    console.log('App sidebar found, toggling active class');
+                    const willActivate = !appSidebar.classList.contains('active');
                     appSidebar.classList.toggle('active');
-                    console.log('Sidebar active state:', appSidebar.classList.contains('active'));
-                } else {
-                    console.error('App sidebar not found');
+                    if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
+                    // Update aria-expanded
+                    sidebarToggle.setAttribute('aria-expanded', willActivate ? 'true' : 'false');
                 }
             });
-        } else {
-            console.error('Sidebar toggle button not found');
+            // Keyboard accessibility
+            sidebarToggle.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    sidebarToggle.click();
+                }
+            });
         }
 
         // Close app sidebar
@@ -184,11 +194,35 @@ class TaskFlowApp {
         if (closeAppSidebar) {
             closeAppSidebar.addEventListener('click', () => {
                 const appSidebar = document.getElementById('appSidebar');
-                if (appSidebar) {
-                    appSidebar.classList.remove('active');
-                }
+                const overlay = document.getElementById('sidebarOverlay');
+                if (appSidebar) appSidebar.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
+                if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
             });
         }
+
+        // Close sidebar when overlay is clicked
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => {
+                const appSidebar = document.getElementById('appSidebar');
+                if (appSidebar) appSidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+                if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        // ESC key closes the sidebar
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const appSidebar = document.getElementById('appSidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                if (appSidebar && appSidebar.classList.contains('active')) {
+                    appSidebar.classList.remove('active');
+                    if (overlay) overlay.classList.remove('active');
+                    if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+                }
+            }
+        });
 
         // Team sidebar close
         const closeSidebar = document.querySelector('.close-sidebar');
@@ -704,7 +738,7 @@ class TaskFlowApp {
                 indicatorEl.innerHTML = `
                     <i class="fas fa-search"></i>
                     Found ${filteredCount} of ${totalCount} tasks
-                    <button class="clear-search" onclick="app.clearSearch()">
+                    <button class="clear-search" onclick="window.app.clearSearch()">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
@@ -798,10 +832,10 @@ class TaskFlowApp {
                         <span class="task-priority ${priorityClass}">
                             <i class="fas fa-flag"></i> ${(task.priority || 'medium').toUpperCase()}
                         </span>
-                        <button class="edit-task" onclick="app.editTask(${task.id})" title="Edit task">
+                        <button class="edit-task" onclick="window.app.editTask(${task.id})" title="Edit task">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="delete-task" onclick="app.deleteTask(${task.id})" title="Delete task">
+                        <button class="delete-task" onclick="window.app.deleteTask(${task.id})" title="Delete task">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1869,11 +1903,15 @@ class TaskFlowApp {
 
 // Global functions for onclick handlers
 function showMainView(viewName) {
-    app.showMainView(viewName);
+    if (window.app) {
+        window.app.showMainView(viewName);
+    }
 }
 
 function switchView(viewType) {
-    app.switchView(viewType);
+    if (window.app) {
+        window.app.switchView(viewType);
+    }
 }
 
 function openNewTaskModal() {
@@ -1882,29 +1920,37 @@ function openNewTaskModal() {
     delete document.getElementById('taskForm').dataset.taskId;
     
     // Ensure users are loaded in dropdown
-    if (app.users && app.users.length > 0) {
-        app.populateUserDropdowns();
-    } else {
-        app.loadUsers();
+    if (window.app && window.app.users && window.app.users.length > 0) {
+        window.app.populateUserDropdowns();
+    } else if (window.app) {
+        window.app.loadUsers();
     }
     
-    app.showModal('taskModal');
+    if (window.app) {
+        window.app.showModal('taskModal');
+    }
 }
 
 function filterBy(filterType) {
-    if (filterType === 'overdue') {
-        app.filters.status = 'all';
-        // Filter will be applied in filterAndDisplayTasks based on due date
+    if (window.app) {
+        if (filterType === 'overdue') {
+            window.app.filters.status = 'all';
+            // Filter will be applied in filterAndDisplayTasks based on due date
+        }
+        window.app.filterAndDisplayTasks();
     }
-    app.filterAndDisplayTasks();
 }
 
 function markAllRead() {
-    app.showNotification('All tasks marked as read', 'success');
+    if (window.app) {
+        window.app.showNotification('All tasks marked as read', 'success');
+    }
 }
 
 // Initialize the app
-const app = new TaskFlowApp();
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new TaskFlowApp();
+});
 
 // Add debugging functions for testing modal functionality
 window.debugModals = () => {
@@ -1954,10 +2000,14 @@ window.debugSidebar = () => {
 
 window.testTaskModal = () => {
     console.log('Testing task modal...');
-    app.showModal('taskModal');
+    if (window.app) {
+        window.app.showModal('taskModal');
+    }
 };
 
 window.testPhotoUpload = () => {
     console.log('Testing photo upload...');
-    app.showModal('settingsModal');
+    if (window.app) {
+        window.app.showModal('settingsModal');
+    }
 };
