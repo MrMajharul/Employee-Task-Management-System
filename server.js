@@ -507,7 +507,7 @@ app.get('/api/users', authenticateToken, (req, res) => {
     });
 });
 
-// Add task with stored procedure and transaction
+// Add task with direct SQL queries (bypassing stored procedure issues)
 app.post('/api/tasks', authenticateToken, (req, res) => {
     const { title, description, assigned_to, due_date, priority, estimated_hours } = req.body;
     
@@ -516,8 +516,12 @@ app.post('/api/tasks', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Title and assigned user are required' });
     }
     
-    // Use stored procedure for task assignment with transaction
-    const query = 'CALL sp_assign_task(?, ?, ?, ?, ?, ?, ?)';
+    // Use direct SQL insert instead of stored procedure
+    const insertQuery = `
+        INSERT INTO tasks (title, description, assigned_to, assigned_by, priority, due_date, estimated_hours, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+    `;
+    
     const params = [
         title, 
         description || null, 
@@ -528,20 +532,35 @@ app.post('/api/tasks', authenticateToken, (req, res) => {
         estimated_hours || null
     ];
     
-    db.query(query, params, (err, results) => {
+    db.query(insertQuery, params, (err, result) => {
         if (err) {
             console.error('Task creation error:', err);
-            if (err.message.includes('does not exist or is inactive')) {
+            if (err.code === 'ER_NO_REFERENCED_ROW_2') {
                 return res.status(400).json({ error: 'Assigned user does not exist or is inactive' });
             }
             return res.status(500).json({ error: 'Failed to create task' });
         }
         
-        const taskId = results[0][0].task_id;
+        const taskId = result.insertId;
         
-        // Get the created task details using the view
+        // Get the created task details
         const getTaskQuery = `
-            SELECT * FROM vw_task_summary WHERE id = ?
+            SELECT 
+                t.id, t.title, t.description, t.status, t.priority, t.due_date,
+                t.progress_percentage, t.estimated_hours, t.actual_hours,
+                assigned_user.full_name as assigned_to_name,
+                assigned_user.email as assigned_to_email,
+                assigner.full_name as assigned_by_name,
+                CASE 
+                    WHEN t.due_date < CURRENT_DATE AND t.status != 'completed' THEN 'overdue'
+                    WHEN t.due_date = CURRENT_DATE AND t.status != 'completed' THEN 'due_today'
+                    ELSE 'normal'
+                END as urgency_status,
+                t.created_at, t.updated_at
+            FROM tasks t
+            LEFT JOIN users assigned_user ON t.assigned_to = assigned_user.id
+            LEFT JOIN users assigner ON t.assigned_by = assigner.id
+            WHERE t.id = ?
         `;
         
         db.query(getTaskQuery, [taskId], (err, taskResults) => {
@@ -558,28 +577,66 @@ app.post('/api/tasks', authenticateToken, (req, res) => {
     });
 });
 
-// Update task with stored procedure for status changes
+// Update task with direct SQL queries (bypassing stored procedure issues)
 app.put('/api/tasks/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
     const { title, description, assigned_to, due_date, status, priority, actual_hours } = req.body;
     
-    // If only status is being updated, use stored procedure
+    // If only status is being updated, use direct SQL
     if (status && Object.keys(req.body).length <= 3) { // status, and optionally actual_hours
-        const query = 'CALL sp_update_task_status(?, ?, ?, ?)';
+        // First check if user has permission to update this task
+        const checkPermissionQuery = `
+            SELECT assigned_to, assigned_by 
+            FROM tasks 
+            WHERE id = ?
+        `;
         
-        db.query(query, [id, req.user.id, status, actual_hours || null], (err, results) => {
+        db.query(checkPermissionQuery, [id], (err, taskResults) => {
             if (err) {
-                console.error('Task status update error:', err);
-                if (err.message.includes('Task not found')) {
-                    return res.status(404).json({ error: 'Task not found' });
-                }
-                if (err.message.includes('Insufficient permissions')) {
-                    return res.status(403).json({ error: 'Insufficient permissions to update this task' });
-                }
-                return res.status(500).json({ error: 'Failed to update task status' });
+                console.error('Task permission check error:', err);
+                return res.status(500).json({ error: 'Database error' });
             }
             
-            res.json({ message: 'Task status updated successfully' });
+            if (taskResults.length === 0) {
+                return res.status(404).json({ error: 'Task not found' });
+            }
+            
+            const task = taskResults[0];
+            const userRole = req.user.role;
+            
+            // Check permissions
+            if (task.assigned_to !== req.user.id && 
+                task.assigned_by !== req.user.id && 
+                !['admin', 'manager'].includes(userRole)) {
+                return res.status(403).json({ error: 'Insufficient permissions to update this task' });
+            }
+            
+            // Update task status
+            let updateQuery = 'UPDATE tasks SET status = ?, updated_at = NOW()';
+            let params = [status];
+            
+            if (actual_hours) {
+                updateQuery += ', actual_hours = ?';
+                params.push(actual_hours);
+            }
+            
+            if (status === 'completed') {
+                updateQuery += ', completion_date = NOW()';
+            } else if (status === 'in_progress' && task.start_date === null) {
+                updateQuery += ', start_date = NOW()';
+            }
+            
+            updateQuery += ' WHERE id = ?';
+            params.push(id);
+            
+            db.query(updateQuery, params, (err, result) => {
+                if (err) {
+                    console.error('Task status update error:', err);
+                    return res.status(500).json({ error: 'Failed to update task status' });
+                }
+                
+                res.json({ message: 'Task status updated successfully' });
+            });
         });
     } else {
         // For other updates, use transaction

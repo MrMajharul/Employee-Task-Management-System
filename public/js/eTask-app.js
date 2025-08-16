@@ -109,13 +109,13 @@ class TaskFlowApp {
             });
         }
 
-        // Sidebar toggle
+        // Sidebar toggle (left app sidebar)
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
-                const teamSidebar = document.getElementById('teamSidebar');
-                if (teamSidebar) {
-                    teamSidebar.classList.toggle('active');
+                const appSidebar = document.getElementById('appSidebar');
+                if (appSidebar) {
+                    appSidebar.classList.toggle('active');
                 }
             });
         }
@@ -1523,22 +1523,24 @@ class TaskFlowApp {
     }
 
     logout() {
-        this.authToken = null;
-        this.currentUser = null;
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        
-        // Clear dashboard refresh interval
-        if (this.dashboardRefreshInterval) {
-            clearInterval(this.dashboardRefreshInterval);
-            this.dashboardRefreshInterval = null;
+        try {
+            this.authToken = null;
+            this.currentUser = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+
+            // Clear dashboard refresh interval
+            if (this.dashboardRefreshInterval) {
+                clearInterval(this.dashboardRefreshInterval);
+                this.dashboardRefreshInterval = null;
+            }
+
+            // Close any open modals (best-effort)
+            document.querySelectorAll('.modal').forEach(modal => modal.remove());
+        } finally {
+            // Redirect to login page to ensure a clean state
+            window.location.href = 'login.html';
         }
-        
-        // Close any open modals
-        document.querySelectorAll('.modal').forEach(modal => modal.remove());
-        
-        this.showLoginForm();
-        this.showNotification('Logged out successfully', 'success');
     }
 
     markAllRead() {

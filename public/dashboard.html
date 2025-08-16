@@ -85,9 +85,20 @@
                 <div class="header-time">12:53 <small>WORKING</small></div>
                 
                 <div class="user-section">
-                    <div class="user-info">
-                        <img src="https://ui-avatars.com/api/?name=User&background=667eea&color=fff" alt="User" class="user-avatar">
-                        <span class="user-name" id="userName">Loading...</span>
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <div class="user-info" id="profileTrigger">
+                            <img src="https://ui-avatars.com/api/?name=User&background=667eea&color=fff" alt="User" class="user-avatar">
+                            <span class="user-name" id="userName">Loading...</span>
+                            <i class="fas fa-chevron-down profile-caret"></i>
+                        </div>
+                        <div class="profile-menu" id="profileMenu">
+                            <button type="button" class="profile-menu-item" id="profileSettingsBtn">
+                                <i class="fas fa-cog"></i> Settings
+                            </button>
+                            <button type="button" class="profile-menu-item" id="profileLogoutBtn">
+                                <i class="fas fa-sign-out-alt"></i> Log out
+                            </button>
+                        </div>
                     </div>
                     
                     <button class="upgrade-btn">
@@ -104,14 +115,6 @@
                             <span class="notification-count">9</span>
                         </button>
                     </div>
-                    
-                    <button class="settings-btn" onclick="showSettingsModal()">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                    
-                    <button class="logout-btn" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </button>
                 </div>
             </div>
         </header>
@@ -411,6 +414,56 @@
             <div class="team-list" id="teamList">
                 <!-- Team members will be populated here -->
             </div>
+        </div>
+
+        <!-- Left App Sidebar -->
+        <div class="app-sidebar" id="appSidebar">
+            <div class="app-sidebar-header">
+                <h3>eTask Menu</h3>
+                <button class="close-app-sidebar" id="closeAppSidebar">&times;</button>
+            </div>
+            <nav class="app-sidebar-nav">
+                <a href="#" data-route="messenger" onclick="navigateToModule('messenger')">
+                    <i class="fas fa-comments"></i> Messenger
+                </a>
+                <a href="#" data-route="feed" onclick="navigateToModule('feed')">
+                    <i class="fas fa-rss"></i> Feed
+                </a>
+                <a href="#" data-route="calendar" onclick="navigateToModule('calendar')">
+                    <i class="fas fa-calendar-alt"></i> Calendar
+                </a>
+                <a href="#" data-route="documents" onclick="navigateToModule('documents')">
+                    <i class="fas fa-file-alt"></i> Online Documents
+                </a>
+                <a href="#" data-route="webmail" onclick="navigateToModule('webmail')">
+                    <i class="fas fa-envelope"></i> Webmail
+                </a>
+                <a href="#" data-route="groupworks" onclick="navigateToModule('groupworks')">
+                    <i class="fas fa-users"></i> Group Works
+                </a>
+                <a href="#" data-route="tasks" onclick="navigateToModule('tasks')" class="active">
+                    <i class="fas fa-tasks"></i> Task and Project
+                </a>
+                <a href="#" data-route="booking" onclick="navigateToModule('booking')">
+                    <i class="fas fa-calendar-check"></i> Booking
+                </a>
+                <a href="#" data-route="inventory" onclick="navigateToModule('inventory')">
+                    <i class="fas fa-boxes"></i> Inventory Management
+                </a>
+                <a href="#" data-route="esignature" onclick="navigateToModule('esignature')">
+                    <i class="fas fa-signature"></i> E-Signature
+                </a>
+                <a href="#" data-route="employees" onclick="navigateToModule('employees')">
+                    <i class="fas fa-user-tie"></i> Employees
+                </a>
+                <a href="#" data-route="subscription" onclick="navigateToModule('subscription')">
+                    <i class="fas fa-credit-card"></i> Subscription
+                </a>
+                <div class="sidebar-divider"></div>
+                <a href="#" data-route="settings" onclick="navigateToModule('settings')">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </nav>
         </div>
     </div>
 
@@ -750,11 +803,119 @@
             }
         }
 
+        // Navigation function for sidebar modules
+        function navigateToModule(moduleName) {
+            console.log('Navigating to:', moduleName);
+            
+            // Update active state in sidebar
+            document.querySelectorAll('.app-sidebar-nav a').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-route="${moduleName}"]`).classList.add('active');
+            
+            // Close sidebar after navigation
+            document.getElementById('appSidebar').classList.remove('active');
+            
+            // Handle different modules
+            switch(moduleName) {
+                case 'tasks':
+                    showMainView('tasks');
+                    break;
+                case 'settings':
+                    showSettingsModal();
+                    break;
+                case 'messenger':
+                    app.showNotification('Messenger module coming soon!', 'info');
+                    break;
+                case 'feed':
+                    app.showNotification('Feed module coming soon!', 'info');
+                    break;
+                case 'calendar':
+                    app.showNotification('Calendar module coming soon!', 'info');
+                    break;
+                case 'documents':
+                    app.showNotification('Online Documents module coming soon!', 'info');
+                    break;
+                case 'webmail':
+                    app.showNotification('Webmail module coming soon!', 'info');
+                    break;
+                case 'groupworks':
+                    app.showNotification('Group Works module coming soon!', 'info');
+                    break;
+                case 'booking':
+                    app.showNotification('Booking module coming soon!', 'info');
+                    break;
+                case 'inventory':
+                    app.showNotification('Inventory Management module coming soon!', 'info');
+                    break;
+                case 'esignature':
+                    app.showNotification('E-Signature module coming soon!', 'info');
+                    break;
+                case 'employees':
+                    app.showNotification('Employees module coming soon!', 'info');
+                    break;
+                case 'subscription':
+                    app.showNotification('Subscription module coming soon!', 'info');
+                    break;
+                default:
+                    console.log('Unknown module:', moduleName);
+            }
+        }
+        
         function logout() {
             if (typeof app !== 'undefined') {
                 app.logout();
             }
         }
+        
+        // Profile dropdown + left sidebar wiring
+        document.addEventListener('DOMContentLoaded', function() {
+            const profileDropdown = document.getElementById('profileDropdown');
+            const profileTrigger = document.getElementById('profileTrigger');
+            const settingsBtn = document.getElementById('profileSettingsBtn');
+            const logoutBtn = document.getElementById('profileLogoutBtn');
+            const appSidebar = document.getElementById('appSidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const closeAppSidebar = document.getElementById('closeAppSidebar');
+
+            if (profileTrigger && profileDropdown) {
+                profileTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    profileDropdown.classList.toggle('open');
+                });
+                document.addEventListener('click', () => profileDropdown.classList.remove('open'));
+            }
+
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    profileDropdown.classList.remove('open');
+                    showSettingsModal();
+                });
+            }
+
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    profileDropdown.classList.remove('open');
+                    logout();
+                });
+            }
+
+            if (sidebarToggle && appSidebar) {
+                sidebarToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    appSidebar.classList.toggle('active');
+                });
+            }
+
+            if (closeAppSidebar && appSidebar) {
+                closeAppSidebar.addEventListener('click', () => appSidebar.classList.remove('active'));
+            }
+        });
     </script>
     <script src="js/eTask-app.js"></script>
 </body>
