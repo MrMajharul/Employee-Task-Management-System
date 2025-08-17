@@ -416,6 +416,49 @@
             </div>
         </div>
 
+        <!-- Documents View -->
+        <div id="documentsView" class="main-view">
+            <div class="task-header">
+                <div class="task-title-section">
+                    <h2 class="section-title">Documents</h2>
+                </div>
+                <div class="filter-actions" style="gap: 12px; display: flex; align-items: center;">
+                    <button class="action-btn new-task-btn" id="docNewButton">
+                        <i class="fas fa-plus"></i> New document
+                    </button>
+                    <div class="search-container">
+                        <input type="text" class="search-input" placeholder="Filter and search" id="docSearch">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="documents-toolbar" style="display:flex; gap:12px; align-items:center; margin-bottom: 12px;">
+                <div class="view-toggle">
+                    <button class="filter-tab active" id="docViewList">List</button>
+                    <button class="filter-tab" id="docViewGrid">Grid</button>
+                    <button class="filter-tab" id="docViewTile">Tile</button>
+                </div>
+                <div class="doc-filter">
+                    <button class="filter-tab" id="docFilterActive">Active</button>
+                    <button class="filter-tab" id="docFilterShared">Shared</button>
+                    <button class="filter-tab" id="docFilterPublished">Published</button>
+                </div>
+            </div>
+            <div class="documents-quick-create" style="display:flex; gap:16px; margin-bottom: 16px; flex-wrap: wrap;">
+                <button class="doc-template" data-type="board"><span class="badge">BOARD</span> Board</button>
+                <button class="doc-template" data-type="document">Document</button>
+                <button class="doc-template" data-type="spreadsheet">Spreadsheet</button>
+                <button class="doc-template" data-type="presentation">Presentation</button>
+                <label class="doc-template">
+                    <input type="file" id="docUploadInput" style="display:none">
+                    <span>Open from my computer</span>
+                </label>
+            </div>
+            <div class="documents-list" id="documentsList">
+                <!-- Documents will be rendered here -->
+            </div>
+        </div>
+
         <!-- Messenger View -->
         <div id="messengerView" class="main-view">
             <div class="messenger-container">
@@ -459,7 +502,7 @@
                                 </div>
                             </div>
                             <div class="chat-info">
-                                <div class="chat-name">Bitrix24 Support</div>
+                                <div class="chat-name">eTask Support</div>
                                 <div class="chat-preview">Hi there! I'm AI support agent...</div>
                                 <div class="chat-time">1:37 pm</div>
                             </div>
@@ -705,6 +748,33 @@
                     <div class="form-group">
                         <label for="taskTags">Tags</label>
                         <input type="text" id="taskTags" placeholder="Add tags...">
+                    </div>
+                </div>
+
+                <!-- Task auxiliary sections: Files and Checklist -->
+                <div class="task-aux">
+                    <div class="task-files">
+                        <div class="section-head">
+                            <strong>Files</strong>
+                            <div class="section-actions">
+                                <input type="file" id="taskFilesInput" multiple style="display:none">
+                                <button type="button" id="taskFilesBtn" class="btn-secondary"><i class="fas fa-paperclip"></i> Upload</button>
+                            </div>
+                        </div>
+                        <div id="taskFilesHint" class="section-hint">Save the task to attach files.</div>
+                        <div id="taskFilesList" class="files-list"></div>
+                    </div>
+
+                    <div class="task-checklists">
+                        <div class="section-head">
+                            <strong>Checklist</strong>
+                            <form id="checklistAddForm" class="inline">
+                                <input id="checklistNewTitle" type="text" placeholder="Add checklist item...">
+                                <button type="submit" class="btn-secondary">Add</button>
+                            </form>
+                        </div>
+                        <div id="taskChecklistHint" class="section-hint">Save the task to add a checklist.</div>
+                        <div id="taskChecklistList" class="checklist-list"></div>
                     </div>
                 </div>
                 
@@ -1013,7 +1083,7 @@
                     app.showNotification('Calendar module coming soon!', 'info');
                     break;
                 case 'documents':
-                    app.showNotification('Online Documents module coming soon!', 'info');
+                    showMainView('documents');
                     break;
                 case 'webmail':
                     app.showNotification('Webmail module coming soon!', 'info');

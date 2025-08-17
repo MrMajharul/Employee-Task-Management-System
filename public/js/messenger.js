@@ -175,7 +175,7 @@ class MessengerApp {
         
         const roomNames = {
             'general': 'General chat',
-            'support': 'Bitrix24 Support',
+            'support': 'eTask Support',
             'company-news': 'Company News',
             'notes': 'Notes'
         };
