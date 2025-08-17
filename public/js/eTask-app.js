@@ -22,6 +22,167 @@ class TaskFlowApp {
         this.init();
     }
 
+    // Online Documents: load and render list
+    async loadDocuments() {
+        try {
+            const q = (document.getElementById('docSearch')?.value || '').trim();
+            const qs = q ? `?q=${encodeURIComponent(q)}` : '';
+            const docs = await this.apiCall(`/documents${qs}`);
+            this.documents = Array.isArray(docs) ? docs : [];
+            this.renderDocumentsList();
+        } catch (err) {
+            console.error('Failed to load documents:', err);
+            const list = document.getElementById('documentsList');
+            if (list) {
+                list.innerHTML = '<div class="empty-state">Unable to load documents.</div>';
+            }
+        }
+    }
+
+    renderDocumentsList() {
+        const list = document.getElementById('documentsList');
+        if (!list) return;
+
+        const docs = this.documents || [];
+        if (docs.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <div>No documents yet</div>
+                    <div class="empty-actions">
+                        <button class="action-btn" id="docEmptyCreate">Create document</button>
+                    </div>
+                </div>`;
+            const createBtn = document.getElementById('docEmptyCreate');
+            if (createBtn) {
+                createBtn.addEventListener('click', async () => {
+                    const title = prompt('Document title');
+                    if (!title) return;
+                    await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type: 'document' }) });
+                    this.loadDocuments();
+                });
+            }
+            return;
+        }
+
+        const fmtBytes = (b) => {
+            if (!b && b !== 0) return '';
+            const units = ['B','KB','MB','GB'];
+            let i = 0; let n = b;
+            while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+            return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+        };
+        const iconFor = (type) => {
+            switch (type) {
+                case 'board': return '📋';
+                case 'document': return '📝';
+                case 'spreadsheet': return '📊';
+                case 'presentation': return '📽️';
+                default: return '📄';
+            }
+        };
+
+        list.innerHTML = docs.map(d => {
+            const fileUrl = d.filename ? `/uploads/documents/${d.filename}` : '';
+            const updated = d.updated_at ? new Date(d.updated_at) : (d.created_at ? new Date(d.created_at) : null);
+            const updatedText = updated ? updated.toLocaleDateString() : '';
+            return `
+            <div class="doc-row" data-doc-id="${d.id}">
+                <div class="doc-main">
+                    <span class="doc-icon" aria-hidden="true">${iconFor(d.type)}</span>
+                    <span class="doc-title" title="Double-click to rename">${this.escapeHtml(d.title || 'Untitled')}</span>
+                </div>
+                <div class="doc-meta">
+                    <span class="badge badge-${d.type}">${d.type || 'file'}</span>
+                    ${d.shared ? '<span class="badge badge-shared">Shared</span>' : ''}
+                    ${d.published ? '<span class="badge badge-published">Published</span>' : ''}
+                    ${d.size ? `<span class="doc-size">${fmtBytes(d.size)}</span>` : ''}
+                    ${updatedText ? `<span class="doc-updated">${updatedText}</span>` : ''}
+                </div>
+                <div class="doc-actions">
+                    ${fileUrl ? `<a class="btn-link" href="${fileUrl}" target="_blank" rel="noopener">Open</a>` : ''}
+                    <button class="btn-link" data-action="toggle-share">${d.shared ? 'Unshare' : 'Share'}</button>
+                    <button class="btn-link" data-action="toggle-publish">${d.published ? 'Unpublish' : 'Publish'}</button>
+                    <button class="btn-link" data-action="rename">Rename</button>
+                    <button class="btn-link text-danger" data-action="delete">Delete</button>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Event delegation for actions (set up once)
+        if (!this._docsDelegated) {
+            this._docsDelegated = true;
+            list.addEventListener('click', async (e) => {
+                const btn = e.target.closest('[data-action]');
+                if (!btn) return;
+                const row = btn.closest('[data-doc-id]');
+                if (!row) return;
+                const id = row.getAttribute('data-doc-id');
+                const doc = (this.documents || []).find(x => String(x.id) === String(id));
+                if (!doc) return;
+                const action = btn.getAttribute('data-action');
+                try {
+                    if (action === 'rename') {
+                        const newTitle = prompt('Rename document', doc.title || '');
+                        if (!newTitle || newTitle === doc.title) return;
+                        await this.apiCall(`/documents/${doc.id}`, { method: 'PUT', body: JSON.stringify({ title: newTitle }) });
+                        doc.title = newTitle;
+                        this.renderDocumentsList();
+                        this.showNotification('Document renamed', 'success');
+                    } else if (action === 'toggle-share') {
+                        const newVal = !doc.shared;
+                        await this.apiCall(`/documents/${doc.id}`, { method: 'PUT', body: JSON.stringify({ shared: newVal }) });
+                        doc.shared = newVal ? 1 : 0;
+                        this.renderDocumentsList();
+                    } else if (action === 'toggle-publish') {
+                        const newVal = !doc.published;
+                        await this.apiCall(`/documents/${doc.id}`, { method: 'PUT', body: JSON.stringify({ published: newVal }) });
+                        doc.published = newVal ? 1 : 0;
+                        this.renderDocumentsList();
+                    } else if (action === 'delete') {
+                        if (!confirm('Delete this document? This cannot be undone.')) return;
+                        await this.apiCall(`/documents/${doc.id}`, { method: 'DELETE' });
+                        this.documents = (this.documents || []).filter(x => x.id !== doc.id);
+                        this.renderDocumentsList();
+                        this.showNotification('Document deleted', 'success');
+                    }
+                } catch (err) {
+                    this.showNotification(err.message || 'Action failed', 'error');
+                }
+            });
+
+            // Rename via double-click on title
+            list.addEventListener('dblclick', async (e) => {
+                const titleEl = e.target.closest('.doc-title');
+                if (!titleEl) return;
+                const row = titleEl.closest('[data-doc-id]');
+                if (!row) return;
+                const id = row.getAttribute('data-doc-id');
+                const doc = (this.documents || []).find(x => String(x.id) === String(id));
+                if (!doc) return;
+                const newTitle = prompt('Rename document', doc.title || '');
+                if (!newTitle || newTitle === doc.title) return;
+                try {
+                    await this.apiCall(`/documents/${doc.id}`, { method: 'PUT', body: JSON.stringify({ title: newTitle }) });
+                    doc.title = newTitle;
+                    this.renderDocumentsList();
+                } catch (err) {
+                    this.showNotification(err.message || 'Rename failed', 'error');
+                }
+            });
+        }
+    }
+
+    // Basic HTML escaper for safe rendering
+    escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     async init() {
         this.setupEventListeners();
         
@@ -251,6 +412,53 @@ class TaskFlowApp {
             });
         }
 
+                // Documents UI wiring
+                const docSearch = document.getElementById('docSearch');
+                if (docSearch) {
+                    docSearch.addEventListener('input', () => this.loadDocuments());
+                }
+                const docNewButton = document.getElementById('docNewButton');
+                if (docNewButton) {
+                    docNewButton.addEventListener('click', async () => {
+                        const title = prompt('Document title');
+                        if (!title) return;
+                        await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type: 'document' }) });
+                        this.loadDocuments();
+                    });
+                }
+                document.querySelectorAll('.doc-template').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const type = e.currentTarget.dataset.type;
+                        if (!type) return;
+                        const title = prompt(`New ${type} title`);
+                        if (!title) return;
+                        await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type }) });
+                        this.loadDocuments();
+                    });
+                });
+                const docUploadInput = document.getElementById('docUploadInput');
+                if (docUploadInput) {
+                    docUploadInput.addEventListener('change', async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const form = new FormData();
+                        form.append('file', file);
+                        const res = await fetch(`${this.API_BASE_URL}/documents/upload`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${this.authToken}` },
+                            body: form
+                        });
+                        if (!res.ok) {
+                            const msg = await res.text();
+                            this.showNotification(`Upload failed: ${msg}`, 'error');
+                        } else {
+                            this.showNotification('Document uploaded', 'success');
+                            this.loadDocuments();
+                        }
+                        e.target.value = '';
+                    });
+                }
+
                 // Enhanced invite functionality
         const inviteBtn = document.querySelector('.invite-btn');
         if (inviteBtn) {
@@ -465,6 +673,9 @@ class TaskFlowApp {
                     body: JSON.stringify(taskData)
                 });
                 this.showNotification('Task updated successfully!', 'success');
+                // Refresh checklist and files if modal remains open
+                this.loadTaskChecklists(taskId);
+                this.loadTaskFiles(taskId);
             } else {
                 await this.apiCall('/tasks', {
                     method: 'POST',
@@ -478,6 +689,135 @@ class TaskFlowApp {
             
         } catch (error) {
             this.showNotification(error.message, 'error');
+        }
+    }
+
+    // Task Files & Checklist
+    async loadTaskFiles(taskId) {
+        const list = document.getElementById('taskFilesList');
+        const hint = document.getElementById('taskFilesHint');
+        if (!list) return;
+        if (!taskId) {
+            if (hint) hint.style.display = 'block';
+            list.innerHTML = '';
+            return;
+        }
+        if (hint) hint.style.display = 'none';
+        try {
+            const files = await this.apiCall(`/tasks/${taskId}/files`);
+            list.innerHTML = files.map(f => `
+                <div class="file-item" data-file-id="${f.id}">
+                    <div>
+                        <a href="${f.url}" target="_blank" rel="noopener">${this.escapeHtml(f.original_name)}</a>
+                        <div class="file-meta">${(f.size/1024).toFixed(1)} KB · ${new Date(f.created_at).toLocaleString()}</div>
+                    </div>
+                    <button class="btn-link text-danger" data-action="delete-file">Delete</button>
+                </div>
+            `).join('');
+        } catch (e) {
+            list.innerHTML = '<div class="section-hint">Unable to load files.</div>';
+        }
+    }
+
+    async uploadTaskFiles(taskId, files) {
+        if (!taskId || !files || files.length === 0) return;
+        const form = new FormData();
+        for (const f of files) form.append('files', f);
+        const res = await fetch(`${this.API_BASE_URL}/tasks/${taskId}/files`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${this.authToken}` },
+            body: form
+        });
+        if (!res.ok) throw new Error('Upload failed');
+        this.showNotification('Files uploaded', 'success');
+        await this.loadTaskFiles(taskId);
+    }
+
+    async loadTaskChecklists(taskId) {
+        const list = document.getElementById('taskChecklistList');
+        const hint = document.getElementById('taskChecklistHint');
+        const form = document.getElementById('checklistAddForm');
+        const input = document.getElementById('checklistNewTitle');
+        if (!list) return;
+        if (!taskId) {
+            if (hint) hint.style.display = 'block';
+            list.innerHTML = '';
+            if (form) form.style.display = 'none';
+            return;
+        }
+        if (hint) hint.style.display = 'none';
+        if (form) form.style.display = 'flex';
+        try {
+            const items = await this.apiCall(`/tasks/${taskId}/checklists`);
+            list.innerHTML = items.map(it => `
+                <div class="check-item" data-check-id="${it.id}">
+                    <div class="left">
+                        <input type="checkbox" ${it.is_completed ? 'checked' : ''} data-action="toggle-check">
+                        <span class="title">${this.escapeHtml(it.title)}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-link" data-action="rename-check">Rename</button>
+                        <button class="btn-link text-danger" data-action="delete-check">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (e) {
+            list.innerHTML = '<div class="section-hint">Unable to load checklist.</div>';
+        }
+
+        // Bind add form
+        if (form && !form._bound) {
+            form._bound = true;
+            form.addEventListener('submit', async (ev) => {
+                ev.preventDefault();
+                const title = input?.value?.trim();
+                if (!title) return;
+                try {
+                    await this.apiCall(`/tasks/${taskId}/checklists`, { method: 'POST', body: JSON.stringify({ title }) });
+                    input.value = '';
+                    this.loadTaskChecklists(taskId);
+                } catch (err) {
+                    this.showNotification(err.message || 'Failed to add item', 'error');
+                }
+            });
+        }
+
+        // Event delegation for checklist actions
+        if (list && !list._delegated) {
+            list._delegated = true;
+            list.addEventListener('click', async (e) => {
+                const row = e.target.closest('[data-check-id]');
+                if (!row) return;
+                const id = row.getAttribute('data-check-id');
+                const action = e.target.getAttribute('data-action');
+                try {
+                    if (action === 'delete-check') {
+                        await this.apiCall(`/checklists/${id}`, { method: 'DELETE' });
+                        this.loadTaskChecklists(taskId);
+                    } else if (action === 'rename-check') {
+                        const current = row.querySelector('.title')?.textContent || '';
+                        const title = prompt('Rename checklist item', current);
+                        if (!title || title === current) return;
+                        await this.apiCall(`/checklists/${id}`, { method: 'PUT', body: JSON.stringify({ title }) });
+                        this.loadTaskChecklists(taskId);
+                    }
+                } catch (err) {
+                    this.showNotification(err.message || 'Action failed', 'error');
+                }
+            });
+
+            list.addEventListener('change', async (e) => {
+                if (e.target.getAttribute('data-action') !== 'toggle-check') return;
+                const row = e.target.closest('[data-check-id]');
+                if (!row) return;
+                const id = row.getAttribute('data-check-id');
+                try {
+                    await this.apiCall(`/checklists/${id}`, { method: 'PUT', body: JSON.stringify({ is_completed: e.target.checked }) });
+                } catch (err) {
+                    this.showNotification(err.message || 'Update failed', 'error');
+                    e.target.checked = !e.target.checked;
+                }
+            });
         }
     }
 
@@ -524,6 +864,8 @@ class TaskFlowApp {
                 this.loadTasks(),
                 this.loadUsers()
             ]);
+            // Preload documents list (lazy render until view is shown)
+            await this.loadDocuments?.();
             
             // Update user info after everything is loaded
             this.updateUserInfo();
@@ -806,13 +1148,11 @@ class TaskFlowApp {
         taskDiv.className = 'task-item';
         taskDiv.dataset.taskId = task.id;
         
-        // Handle user assignment - check different possible field names
+        // Resolve creator and assignee display
+        const creatorName = task.assigned_by_name || 'Unknown';
         let assignedUser = null;
         if (task.assigned_to_name) {
-            assignedUser = {
-                full_name: task.assigned_to_name,
-                email: task.assigned_to_email || ''
-            };
+            assignedUser = { full_name: task.assigned_to_name, email: task.assigned_to_email || '' };
         } else if (task.assigned_to) {
             assignedUser = this.users.find(u => u.id == task.assigned_to);
         }
@@ -846,8 +1186,13 @@ class TaskFlowApp {
                         ${assignedUser ? `
                             <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(assignedUser.full_name)}&background=667eea&color=fff" 
                                  alt="${assignedUser.full_name}" class="assignee-avatar">
-                            <span>${assignedUser.full_name}</span>
-                        ` : '<span class="unassigned">Unassigned</span>'}
+                            <span><strong>Assignee:</strong> ${assignedUser.full_name}</span>
+                        ` : '<span class="unassigned"><strong>Assignee:</strong> Unassigned</span>'}
+                    </div>
+                    <div class="task-created-by">
+                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(creatorName)}&background=667eea&color=fff" 
+                        alt="${creatorName}" class="assignee-avatar"/>
+                    <span><strong>Created by:</strong> ${creatorName}</span>
                     </div>
                     <div class="task-due-date ${this.getDueDateClass(task.due_date)}">
                         <i class="fas fa-calendar-alt"></i> ${this.formatDate(task.due_date)}
@@ -1093,6 +1438,25 @@ class TaskFlowApp {
             document.getElementById('taskForm').dataset.taskId = taskId;
             
             this.showModal('taskModal');
+            // After modal opens, load files and checklist
+            setTimeout(() => {
+                this.loadTaskFiles(taskId);
+                this.loadTaskChecklists(taskId);
+                const uploadBtn = document.getElementById('taskFilesBtn');
+                const input = document.getElementById('taskFilesInput');
+                if (uploadBtn && input && !uploadBtn._bound) {
+                    uploadBtn._bound = true;
+                    uploadBtn.addEventListener('click', () => input.click());
+                    input.addEventListener('change', async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        if (files.length) await this.uploadTaskFiles(taskId, files);
+                        e.target.value = '';
+                    });
+                    // Enable section when task exists
+                    const filesHint = document.getElementById('taskFilesHint');
+                    if (filesHint) filesHint.style.display = 'none';
+                }
+            }, 50);
             
         } catch (error) {
             console.error('Error loading task:', error);
@@ -1203,10 +1567,14 @@ class TaskFlowApp {
             'assigned': 'Tasks Set by Me',
             'efficiency': 'Efficiency Analytics',
             'supervising': 'Team Supervision',
-            'messenger': 'Messenger'
+            'messenger': 'Messenger',
+            'documents': 'Online Documents'
         };
 
         document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
+        if (viewName === 'documents') {
+            this.loadDocuments?.();
+        }
     }
 
     switchView(viewType) {

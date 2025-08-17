@@ -46,12 +46,79 @@ db.connect((err) => {
         return;
     }
     console.log('Connected to MySQL database');
+    // Ensure documents table exists
+    const createDocumentsTable = `
+        CREATE TABLE IF NOT EXISTS documents (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            type ENUM('board','document','spreadsheet','presentation','file') NOT NULL DEFAULT 'file',
+            filename VARCHAR(255) NULL,
+            mime_type VARCHAR(128) NULL,
+            size INT NULL,
+            created_by INT NOT NULL,
+            shared TINYINT(1) NOT NULL DEFAULT 0,
+            published TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX(created_by)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+    db.query(createDocumentsTable, (e) => {
+        if (e) {
+            console.warn('Could not ensure documents table:', e.message);
+        } else {
+            console.log('Documents table ready');
+        }
+    });
+
+    // Ensure task_checklists table exists
+    const createTaskChecklists = `
+        CREATE TABLE IF NOT EXISTS task_checklists (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            is_completed TINYINT(1) NOT NULL DEFAULT 0,
+            created_by INT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX(task_id),
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+    db.query(createTaskChecklists, (e) => {
+        if (e) console.warn('Could not ensure task_checklists table:', e.message);
+        else console.log('task_checklists table ready');
+    });
+
+    // Ensure task_files table exists
+    const createTaskFiles = `
+        CREATE TABLE IF NOT EXISTS task_files (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            task_id INT NOT NULL,
+            filename VARCHAR(255) NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            mime_type VARCHAR(128) NULL,
+            size INT NULL,
+            uploaded_by INT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX(task_id),
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+    db.query(createTaskFiles, (e) => {
+        if (e) console.warn('Could not ensure task_files table:', e.message);
+        else console.log('task_files table ready');
+    });
 });
 
-// Ensure uploads directory exists
+// Ensure uploads directories exist
 const uploadsDir = path.join(__dirname, 'public', 'uploads', 'profile');
+const documentsDir = path.join(__dirname, 'public', 'uploads', 'documents');
+const tasksFilesDir = path.join(__dirname, 'public', 'uploads', 'tasks');
 try {
     fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.mkdirSync(documentsDir, { recursive: true });
+    fs.mkdirSync(tasksFilesDir, { recursive: true });
 } catch (e) {
     console.warn('Could not ensure uploads directory:', e.message);
 }
@@ -76,6 +143,62 @@ const upload = multer({
         }
         cb(null, true);
     }
+});
+
+// Multer storage for documents (allow common doc types)
+const docStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, documentsDir);
+    },
+    filename: function (req, file, cb) {
+        const original = path.basename(file.originalname);
+        const safe = original.replace(/\s+/g, '_');
+        const ext = path.extname(safe);
+        const base = path.basename(safe, ext);
+        cb(null, `${base}_${Date.now()}${ext}`);
+    }
+});
+
+const allowedDocMimes = new Set([
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/markdown'
+]);
+
+const uploadDoc = multer({
+    storage: docStorage,
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+    fileFilter: (req, file, cb) => {
+        if (!allowedDocMimes.has(file.mimetype)) {
+            return cb(new Error('Unsupported file type'));
+        }
+        cb(null, true);
+    }
+});
+
+// Multer storage for task attachments (allow broad set of common file types)
+const taskFileStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, tasksFilesDir);
+    },
+    filename: function (req, file, cb) {
+        const original = path.basename(file.originalname);
+        const safe = original.replace(/\s+/g, '_');
+        const ext = path.extname(safe);
+        const base = path.basename(safe, ext);
+        cb(null, `${base}_${Date.now()}${ext}`);
+    }
+});
+
+const uploadTaskFiles = multer({
+    storage: taskFileStorage,
+    limits: { fileSize: 30 * 1024 * 1024 }, // 30MB per file
 });
 
 // Authentication middleware
@@ -175,6 +298,89 @@ app.post('/api/google-login', async (req, res) => {
 app.get('/api/config', (req, res) => {
     res.json({
         googleClientId: process.env.GOOGLE_CLIENT_ID || null
+    });
+});
+
+// Helper to map mime to document type
+function mapMimeToDocType(mime) {
+    if (!mime) return 'file';
+    if (mime.includes('word')) return 'document';
+    if (mime.includes('sheet') || mime.includes('excel')) return 'spreadsheet';
+    if (mime.includes('presentation') || mime.includes('powerpoint')) return 'presentation';
+    return 'file';
+}
+
+// Documents API
+app.get('/api/documents', authenticateToken, (req, res) => {
+    const { q, filter } = req.query;
+    let where = 'WHERE created_by = ?';
+    const params = [req.user.id];
+    if (q) { where += ' AND title LIKE ?'; params.push(`%${q}%`); }
+    if (filter === 'shared') where += ' AND shared = 1';
+    if (filter === 'published') where += ' AND published = 1';
+    const sql = `SELECT * FROM documents ${where} ORDER BY updated_at DESC`;
+    db.query(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/documents', authenticateToken, (req, res) => {
+    const { title, type } = req.body;
+    const safeType = ['board','document','spreadsheet','presentation','file'].includes(type) ? type : 'file';
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    const sql = 'INSERT INTO documents (title, type, created_by) VALUES (?, ?, ?)';
+    db.query(sql, [title, safeType, req.user.id], (err, result) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ id: result.insertId, title, type: safeType, created_by: req.user.id, shared: 0, published: 0 });
+    });
+});
+
+app.post('/api/documents/upload', authenticateToken, uploadDoc.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const title = req.body.title || req.file.originalname;
+    const mime_type = req.file.mimetype;
+    const size = req.file.size;
+    const filename = req.file.filename;
+    const type = mapMimeToDocType(mime_type);
+    const sql = 'INSERT INTO documents (title, type, filename, mime_type, size, created_by) VALUES (?, ?, ?, ?, ?, ?)';
+    db.query(sql, [title, type, filename, mime_type, size, req.user.id], (err, result) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ id: result.insertId, title, type, filename, mime_type, size, created_by: req.user.id });
+    });
+});
+
+app.put('/api/documents/:id', authenticateToken, (req, res) => {
+    const { title, shared, published } = req.body;
+    const fields = [];
+    const params = [];
+    if (title !== undefined) { fields.push('title = ?'); params.push(title); }
+    if (shared !== undefined) { fields.push('shared = ?'); params.push(shared ? 1 : 0); }
+    if (published !== undefined) { fields.push('published = ?'); params.push(published ? 1 : 0); }
+    if (fields.length === 0) return res.status(400).json({ error: 'No fields to update' });
+    params.push(req.params.id, req.user.id);
+    const sql = `UPDATE documents SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ? AND created_by = ?`;
+    db.query(sql, params, (err) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/documents/:id', authenticateToken, (req, res) => {
+    const select = 'SELECT filename FROM documents WHERE id = ? AND created_by = ? LIMIT 1';
+    db.query(select, [req.params.id, req.user.id], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const filename = rows[0].filename;
+        const del = 'DELETE FROM documents WHERE id = ? AND created_by = ?';
+        db.query(del, [req.params.id, req.user.id], (e2) => {
+            if (e2) return res.status(500).json({ error: 'Database error' });
+            if (filename) {
+                const filePath = path.join(documentsDir, filename);
+                fs.unlink(filePath, () => {});
+            }
+            res.json({ success: true });
+        });
     });
 });
 
@@ -431,6 +637,7 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
             SELECT 
                 t.id, t.title, t.description, t.status, t.priority, t.due_date,
                 t.progress_percentage, t.estimated_hours, t.actual_hours,
+                t.assigned_to,
                 assigner.full_name as assigned_by_name,
                 CASE 
                     WHEN t.due_date < CURRENT_DATE AND t.status != 'completed' THEN 'overdue'
@@ -793,6 +1000,92 @@ app.get('/api/tasks/:id/history', authenticateToken, (req, res) => {
             return res.status(500).json({ error: 'Database error' });
         }
         res.json(results);
+    });
+});
+
+// Task Checklists API
+app.get('/api/tasks/:id/checklists', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const sql = 'SELECT * FROM task_checklists WHERE task_id = ? ORDER BY created_at ASC';
+    db.query(sql, [id], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/tasks/:id/checklists', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { title } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    const sql = 'INSERT INTO task_checklists (task_id, title, created_by) VALUES (?, ?, ?)';
+    db.query(sql, [id, title, req.user.id], (err, result) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.status(201).json({ id: result.insertId, task_id: id, title, is_completed: 0 });
+    });
+});
+
+app.put('/api/checklists/:checklistId', authenticateToken, (req, res) => {
+    const { checklistId } = req.params;
+    const { title, is_completed } = req.body;
+    const fields = [];
+    const params = [];
+    if (title !== undefined) { fields.push('title = ?'); params.push(title); }
+    if (is_completed !== undefined) { fields.push('is_completed = ?'); params.push(is_completed ? 1 : 0); }
+    if (!fields.length) return res.status(400).json({ error: 'No fields to update' });
+    params.push(checklistId);
+    const sql = `UPDATE task_checklists SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`;
+    db.query(sql, params, (err) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/checklists/:checklistId', authenticateToken, (req, res) => {
+    const { checklistId } = req.params;
+    const sql = 'DELETE FROM task_checklists WHERE id = ?';
+    db.query(sql, [checklistId], (err) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ success: true });
+    });
+});
+
+// Task Files API
+app.get('/api/tasks/:id/files', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const sql = 'SELECT id, filename, original_name, mime_type, size, uploaded_by, created_at FROM task_files WHERE task_id = ? ORDER BY created_at DESC';
+    db.query(sql, [id], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows.map(r => ({ ...r, url: `/uploads/tasks/${r.filename}` })));
+    });
+});
+
+app.post('/api/tasks/:id/files', authenticateToken, uploadTaskFiles.array('files', 10), (req, res) => {
+    const { id } = req.params;
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+    const values = req.files.map(f => [id, f.filename, f.originalname, f.mimetype, f.size, req.user.id]);
+    const sql = 'INSERT INTO task_files (task_id, filename, original_name, mime_type, size, uploaded_by) VALUES ?';
+    db.query(sql, [values], (err, result) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.status(201).json({ success: true, count: req.files.length });
+    });
+});
+
+app.delete('/api/tasks/:taskId/files/:fileId', authenticateToken, (req, res) => {
+    const { taskId, fileId } = req.params;
+    const select = 'SELECT filename FROM task_files WHERE id = ? AND task_id = ? LIMIT 1';
+    db.query(select, [fileId, taskId], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const filename = rows[0].filename;
+        const del = 'DELETE FROM task_files WHERE id = ? AND task_id = ?';
+        db.query(del, [fileId, taskId], (e2) => {
+            if (e2) return res.status(500).json({ error: 'Database error' });
+            if (filename) {
+                const filePath = path.join(tasksFilesDir, filename);
+                fs.unlink(filePath, () => {});
+            }
+            res.json({ success: true });
+        });
     });
 });
 
