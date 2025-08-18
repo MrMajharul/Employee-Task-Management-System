@@ -208,7 +208,7 @@
             <!-- List View -->
             <div id="listView" class="content-view active">
                 <div class="task-list-container">
-                    <div class="task-item" id="taskList">
+                    <div id="taskList" class="task-list">
                         <!-- Tasks will be populated here -->
                     </div>
                 </div>
@@ -272,6 +272,38 @@
                                 <!-- Completed tasks -->
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deadline View -->
+            <div id="deadlineView" class="content-view">
+                <div class="deadline-container">
+                    <div class="deadline-groups" id="deadlineList">
+                        <!-- Deadline groups will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div id="calendarView" class="content-view">
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <button class="filter-tab" id="calPrev" aria-label="Previous month">‹</button>
+                        <h3 class="calendar-title" id="calendarTitle">Calendar</h3>
+                        <button class="filter-tab" id="calNext" aria-label="Next month">›</button>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid">
+                        <!-- Calendar cells will be rendered here -->
                     </div>
                 </div>
             </div>
@@ -688,7 +720,175 @@
         </div>
     </div>
 
-    <!-- Task Modal -->
+    <!-- Task Detail Modal -->
+    <div id="taskDetailModal" class="modal">
+        <div class="modal-content task-detail-modal">
+            <div class="task-detail-header">
+                <div class="task-header-left">
+                    <h2 id="taskDetailTitle">Task Title</h2>
+                    <div class="task-header-meta">
+                        <span id="taskDetailStatus" class="task-status-badge">pending</span>
+                        <span id="taskDetailPriority" class="task-priority-badge">medium</span>
+                    </div>
+                </div>
+                <div class="task-header-actions">
+                    <button id="taskStartBtn" class="action-btn start-btn">START</button>
+                    <button id="taskFinishBtn" class="action-btn finish-btn">FINISH</button>
+                    <div class="dropdown">
+                        <button class="action-btn more-btn">MORE... <i class="fas fa-chevron-down"></i></button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-item" onclick="copyTask()">
+                                <i class="fas fa-copy"></i> Copy
+                            </div>
+                            <div class="dropdown-item" onclick="createSubtask()">
+                                <i class="fas fa-plus"></i> Create subtask
+                            </div>
+                            <div class="dropdown-item" onclick="addToDailyPlan()">
+                                <i class="fas fa-calendar-plus"></i> Add to Daily Plan
+                            </div>
+                            <div class="dropdown-item" onclick="delegateTask()">
+                                <i class="fas fa-user-plus"></i> Delegate
+                            </div>
+                            <div class="dropdown-item" onclick="deferTask()">
+                                <i class="fas fa-clock"></i> Defer
+                            </div>
+                            <div class="dropdown-item delete-option" onclick="deleteTaskFromDetail()">
+                                <i class="fas fa-trash"></i> Delete
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-btn edit-btn" onclick="editTaskFromDetail()">EDIT</button>
+                </div>
+                <button class="close-modal task-detail-close">&times;</button>
+            </div>
+
+            <div class="task-detail-body">
+                <div class="task-detail-main">
+                    <div class="task-description-section">
+                        <div id="taskDetailDescription">Task description will appear here...</div>
+                        <button class="add-checklist-btn" onclick="showAddChecklistForm()">
+                            <i class="fas fa-plus"></i> Add a checklist
+                        </button>
+                    </div>
+
+                    <div class="task-project-info">
+                        <span>This task is in project (group): </span>
+                        <a href="#" id="taskProjectLink">Add</a>
+                    </div>
+
+                    <div class="task-engagement">
+                        <div class="task-engagement-left">
+                            <button class="like-btn">
+                                <i class="fas fa-thumbs-up"></i> Like
+                            </button>
+                            <span class="copilot-info">CoPilot <i class="fas fa-robot"></i> 1</span>
+                        </div>
+                    </div>
+
+                    <div class="task-tabs">
+                        <div class="task-tab-nav">
+                            <button class="task-tab active" data-tab="comments">Comments <span class="tab-count" id="commentsCount">0</span></button>
+                            <button class="task-tab" data-tab="history">History <span class="tab-count" id="historyCount">1</span></button>
+                        </div>
+                        <div class="task-tab-content">
+                            <div id="commentsTab" class="tab-pane active">
+                                <div class="comment-input">
+                                    <img src="https://ui-avatars.com/api/?name=User&background=667eea&color=fff" alt="User" class="comment-avatar">
+                                    <input type="text" placeholder="Add comment" class="comment-field">
+                                </div>
+                                <div id="commentsList" class="comments-list">
+                                    <!-- Comments will be loaded here -->
+                                </div>
+                            </div>
+                            <div id="historyTab" class="tab-pane">
+                                <div id="taskHistory" class="task-history">
+                                    <!-- History will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="task-detail-sidebar">
+                    <div class="task-status-info">
+                        <div class="status-badge-large" id="taskStatusLarge">
+                            <span class="status-text">Pending</span>
+                            <span class="status-time">since 8/18/2025 12:16 am</span>
+                        </div>
+                    </div>
+
+                    <div class="task-info-section">
+                        <div class="info-item">
+                            <label>Deadline:</label>
+                            <span id="taskDeadlineInfo">8/18/2025 7:00 pm</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Reminder:</label>
+                            <span id="taskReminderInfo">🔔 Remind</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Automation:</label>
+                            <span id="taskAutomationInfo">Configure</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Created on:</label>
+                            <span id="taskCreatedInfo">8/18/2025 12:16 am</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Rating:</label>
+                            <span id="taskRatingInfo">None</span>
+                        </div>
+                    </div>
+
+                    <div class="video-call-section">
+                        <div class="video-call-dropdown">
+                            <button class="video-call-btn">
+                                <i class="fas fa-video"></i> VIDEO CALL <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="task-people-section">
+                        <div class="people-item">
+                            <label>Created by</label>
+                            <div class="person-info">
+                                <img id="taskCreatorAvatar" src="" alt="Creator" class="person-avatar">
+                                <span id="taskCreatorName">Creator Name</span>
+                            </div>
+                        </div>
+                        <div class="people-item">
+                            <label>Assignee <a href="#" class="change-link">change</a></label>
+                            <div class="person-info">
+                                <img id="taskAssigneeAvatar" src="" alt="Assignee" class="person-avatar">
+                                <span id="taskAssigneeName">Assignee Name</span>
+                            </div>
+                        </div>
+                        <div class="people-item">
+                            <label>Participants <a href="#" class="add-link">add</a></label>
+                            <div id="taskParticipants">
+                                <!-- Participants will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="people-item">
+                            <label>Observers <a href="#" class="add-link">add</a></label>
+                            <div id="taskObservers">
+                                <!-- Observers will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="task-tags-section">
+                        <label>Tags</label>
+                        <div id="taskTagsList">
+                            <a href="#" class="add-tag-link">add</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal (for editing/creating) -->
     <div id="taskModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1023,6 +1223,63 @@
                 window.app.switchView(viewType);
             }
         }
+
+        // Task Detail Modal Functions
+        function editTaskFromDetail() {
+            const taskId = document.getElementById('taskDetailModal').dataset.taskId;
+            window.app.hideModal('taskDetailModal');
+            window.app.editTask(taskId);
+        }
+
+        function deleteTaskFromDetail() {
+            const taskId = document.getElementById('taskDetailModal').dataset.taskId;
+            window.app.hideModal('taskDetailModal');
+            window.app.deleteTask(taskId);
+        }
+
+        function copyTask() {
+            window.app.showNotification('Copy task feature coming soon!', 'info');
+        }
+
+        function createSubtask() {
+            window.app.showNotification('Create subtask feature coming soon!', 'info');
+        }
+
+        function addToDailyPlan() {
+            window.app.showNotification('Add to daily plan feature coming soon!', 'info');
+        }
+
+        function delegateTask() {
+            window.app.showNotification('Delegate task feature coming soon!', 'info');
+        }
+
+        function deferTask() {
+            window.app.showNotification('Defer task feature coming soon!', 'info');
+        }
+
+        function showAddChecklistForm() {
+            window.app.showNotification('Add checklist feature coming soon!', 'info');
+        }
+
+        // Task Status Change Functions
+        document.addEventListener('DOMContentLoaded', function() {
+            const startBtn = document.getElementById('taskStartBtn');
+            const finishBtn = document.getElementById('taskFinishBtn');
+            
+            if (startBtn) {
+                startBtn.addEventListener('click', async function() {
+                    const taskId = document.getElementById('taskDetailModal').dataset.taskId;
+                    await window.app.updateTaskStatus(taskId, 'in_progress');
+                });
+            }
+            
+            if (finishBtn) {
+                finishBtn.addEventListener('click', async function() {
+                    const taskId = document.getElementById('taskDetailModal').dataset.taskId;
+                    await window.app.updateTaskStatus(taskId, 'completed');
+                });
+            }
+        });
 
         function openNewTaskModal() {
             if (typeof window.app !== 'undefined') {

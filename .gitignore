@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+.env
+*.log
+server.log
+uploads/
+public/uploads/
+public/uploads/**
+public/js/*.map
+coverage/
+dist/
+tmp/

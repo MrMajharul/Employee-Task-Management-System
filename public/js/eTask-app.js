@@ -945,7 +945,7 @@ class TaskFlowApp {
             
             // Handle different response formats
             this.tasks = Array.isArray(response) ? response : (response.tasks || []);
-            console.log('Loaded tasks:', this.tasks.length);
+            console.log('Loaded tasks:', this.tasks.length, 'tasks');
             
             // Ensure DOM is ready before displaying
             if (document.getElementById('taskList')) {
@@ -962,10 +962,6 @@ class TaskFlowApp {
                 }, 500);
             }
             
-            // Show success message if tasks loaded
-            if (this.tasks.length > 0) {
-                console.log('Tasks loaded successfully:', this.tasks.length);
-            }
         } catch (error) {
             console.error('Error loading tasks:', error);
             this.showNotification('Failed to load tasks: ' + error.message, 'error');
@@ -973,7 +969,16 @@ class TaskFlowApp {
             // Show empty state with proper message
             const taskList = document.getElementById('taskList');
             if (taskList) {
-                taskList.innerHTML = '<div class="no-tasks-message">Unable to load tasks. Please check your connection.</div>';
+                taskList.innerHTML = `
+                    <div class="no-tasks-message" style="padding: 40px; text-align: center;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #f56c6c; margin-bottom: 16px;"></i>
+                        <h3>Unable to load tasks</h3>
+                        <p>Please check your connection and try again.</p>
+                        <button class="btn-primary" onclick="location.reload()">
+                            <i class="fas fa-refresh"></i> Refresh Page
+                        </button>
+                    </div>
+                `;
             }
         }
     }
@@ -995,29 +1000,6 @@ class TaskFlowApp {
             this.displayTeamAvatars();
         } catch (error) {
             console.error('Error loading users:', error);
-        }
-    }
-
-    async updateTaskStatus(taskId, newStatus) {
-        try {
-            await this.apiCall(`/tasks/${taskId}/status`, {
-                method: 'PUT',
-                body: JSON.stringify({ status: newStatus })
-            });
-            
-            // Update local task data
-            const task = this.tasks.find(t => t.id == taskId);
-            if (task) {
-                task.status = newStatus;
-            }
-            
-            this.filterAndDisplayTasks();
-            this.updateTaskCounters();
-            this.showNotification('Task status updated!', 'success');
-            
-        } catch (error) {
-            console.error('Error updating task status:', error);
-            this.showNotification('Failed to update task status', 'error');
         }
     }
 
@@ -1121,7 +1103,7 @@ class TaskFlowApp {
         if (!tasks || tasks.length === 0) {
             console.log('No tasks to display, showing empty state');
             taskList.innerHTML = `
-                <div class="no-tasks-message">
+                <div class="no-tasks-message" style="padding: 40px; text-align: center; background: white; border-radius: 8px;">
                     <i class="fas fa-tasks" style="font-size: 48px; color: #ccc; margin-bottom: 16px;"></i>
                     <h3>No tasks found</h3>
                     <p>Create your first task to get started!</p>
@@ -1140,7 +1122,7 @@ class TaskFlowApp {
             taskList.appendChild(taskElement);
         });
         
-        console.log('Task list population completed');
+        console.log('Task list population completed, taskList children:', taskList.children.length);
         // Delegate description expand/collapse once per page
         if (!this._descDelegated) {
             this._descDelegated = true;
@@ -1221,6 +1203,15 @@ class TaskFlowApp {
             </div>
         `;
         
+        // Add click handler for viewing task details (except on action buttons)
+        taskDiv.addEventListener('click', (e) => {
+            // Don't trigger detail view if clicking on action buttons
+            if (e.target.closest('.task-actions') || e.target.closest('[data-action]')) {
+                return;
+            }
+            this.showTaskDetail(task.id);
+        });
+        
         return taskDiv;
     }
 
@@ -1280,8 +1271,8 @@ class TaskFlowApp {
             </div>
         `;
         
-        // Add click handler for editing
-        taskDiv.addEventListener('click', () => this.editTask(task.id));
+        // Add click handler for viewing task details
+        taskDiv.addEventListener('click', () => this.showTaskDetail(task.id));
         
         return taskDiv;
     }
@@ -1440,6 +1431,133 @@ class TaskFlowApp {
         }
     }
 
+    async showTaskDetail(taskId) {
+        try {
+            const task = await this.apiCall(`/tasks/${taskId}`);
+            
+            // Populate task detail modal
+            document.getElementById('taskDetailTitle').textContent = task.title || 'Untitled Task';
+            document.getElementById('taskDetailDescription').textContent = task.description || 'No description provided';
+            
+            // Update status badge
+            const statusBadge = document.getElementById('taskDetailStatus');
+            statusBadge.textContent = task.status;
+            statusBadge.className = `task-status-badge ${task.status}`;
+            
+            // Update priority badge
+            const priorityBadge = document.getElementById('taskDetailPriority');
+            priorityBadge.textContent = task.priority;
+            priorityBadge.className = `task-priority-badge ${task.priority}`;
+            
+            // Update sidebar status
+            const statusLarge = document.getElementById('taskStatusLarge');
+            statusLarge.innerHTML = `
+                <span class="status-text">${task.status.charAt(0).toUpperCase() + task.status.slice(1).replace('_', ' ')}</span>
+                <span class="status-time">since ${this.formatDateTime(task.created_at)}</span>
+            `;
+            
+            // Update task info
+            document.getElementById('taskDeadlineInfo').textContent = task.due_date ? this.formatDateTime(task.due_date) : 'No deadline';
+            document.getElementById('taskCreatedInfo').textContent = this.formatDateTime(task.created_at);
+            
+            // Update people info
+            const assignedUser = this.users.find(u => u.id == task.assigned_to);
+            const createdUser = this.users.find(u => u.id == task.created_by) || { full_name: 'Unknown User', email: 'unknown' };
+            
+            if (assignedUser) {
+                document.getElementById('taskAssigneeAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedUser.full_name)}&background=667eea&color=fff`;
+                document.getElementById('taskAssigneeName').textContent = assignedUser.full_name;
+            } else {
+                document.getElementById('taskAssigneeAvatar').src = 'https://ui-avatars.com/api/?name=Unassigned&background=ccc&color=fff';
+                document.getElementById('taskAssigneeName').textContent = 'Unassigned';
+            }
+            
+            document.getElementById('taskCreatorAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(createdUser.full_name)}&background=667eea&color=fff`;
+            document.getElementById('taskCreatorName').textContent = createdUser.full_name;
+            
+            // Store task ID for actions
+            document.getElementById('taskDetailModal').dataset.taskId = taskId;
+            
+            // Show/hide action buttons based on status
+            const startBtn = document.getElementById('taskStartBtn');
+            const finishBtn = document.getElementById('taskFinishBtn');
+            
+            startBtn.style.display = task.status === 'pending' ? 'block' : 'none';
+            finishBtn.style.display = task.status === 'in_progress' ? 'block' : 'none';
+            
+            // Setup tab switching
+            this.setupTaskDetailTabs();
+            
+            // Load comments and history
+            await this.loadTaskComments(taskId);
+            await this.loadTaskHistory(taskId);
+            
+            this.showModal('taskDetailModal');
+        } catch (error) {
+            console.error('Error loading task details:', error);
+            this.showNotification('Failed to load task details', 'error');
+        }
+    }
+
+    setupTaskDetailTabs() {
+        const tabs = document.querySelectorAll('.task-tab');
+        const panes = document.querySelectorAll('.tab-pane');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panes.forEach(p => p.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const targetPane = document.getElementById(tab.dataset.tab + 'Tab');
+                if (targetPane) targetPane.classList.add('active');
+            });
+        });
+    }
+
+    async loadTaskComments(taskId) {
+        try {
+            // For now, show a placeholder - you can implement actual comments API
+            const commentsList = document.getElementById('commentsList');
+            commentsList.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No comments yet</div>';
+            document.getElementById('commentsCount').textContent = '0';
+        } catch (error) {
+            console.error('Error loading comments:', error);
+        }
+    }
+
+    async loadTaskHistory(taskId) {
+        try {
+            // Show creation history and any status changes
+            const history = document.getElementById('taskHistory');
+            const task = this.tasks.find(t => t.id == taskId);
+            const createdUser = this.users.find(u => u.id == task?.created_by) || { full_name: 'Unknown User' };
+            
+            history.innerHTML = `
+                <div style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <strong>${createdUser.full_name}</strong> created this task
+                    <div style="color: #999; font-size: 12px;">${this.formatDateTime(task?.created_at)}</div>
+                </div>
+            `;
+            document.getElementById('historyCount').textContent = '1';
+        } catch (error) {
+            console.error('Error loading history:', error);
+        }
+    }
+
+    formatDateTime(dateString) {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    }
+
     async editTask(taskId) {
         try {
             const task = await this.apiCall(`/tasks/${taskId}`);
@@ -1480,6 +1598,50 @@ class TaskFlowApp {
         } catch (error) {
             console.error('Error loading task:', error);
             this.showNotification('Failed to load task details', 'error');
+        }
+    }
+
+    async updateTaskStatus(taskId, newStatus) {
+        try {
+            console.log('Updating task status:', taskId, 'to', newStatus);
+            console.log('Auth token exists:', !!this.authToken);
+            
+            const url = `${this.API_BASE_URL}/tasks/${taskId}`;
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.authToken && { 'Authorization': `Bearer ${this.authToken}` })
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            const data = await response.json();
+            console.log('Status update response:', response.status, data);
+
+            if (!response.ok) {
+                if (response.status === 403) {
+                    this.showNotification('You do not have permission to update this task', 'error');
+                    return;
+                } else if (response.status === 401) {
+                    this.showNotification('Authentication required. Please log in again.', 'error');
+                    this.logout();
+                    return;
+                } else {
+                    throw new Error(data.error || `Server error: ${response.status}`);
+                }
+            }
+            
+            this.showNotification(`Task status updated to ${newStatus.replace('_', ' ')}!`, 'success');
+            
+            // Refresh task detail view
+            await this.showTaskDetail(taskId);
+            
+            // Reload tasks to update the main view
+            await this.loadTasks();
+        } catch (error) {
+            console.error('Error updating task status:', error);
+            this.showNotification(`Failed to update task status: ${error.message}`, 'error');
         }
     }
 
@@ -1619,7 +1781,183 @@ class TaskFlowApp {
             contentView.classList.add('active');
         }
         
-        this.filterAndDisplayTasks();
+        // Render view-specific content
+        if (viewType === 'list' || viewType === 'kanban') {
+            this.filterAndDisplayTasks();
+        } else if (viewType === 'deadline') {
+            this.renderDeadlineView();
+        } else if (viewType === 'calendar') {
+            this.renderCalendar();
+        }
+    }
+    // Deadline view: Group tasks by due date buckets
+    renderDeadlineView() {
+        const container = document.getElementById('deadlineList');
+        if (!container) return;
+        
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+        const buckets = {
+            overdue: [],
+            today: [],
+            tomorrow: [],
+            thisWeek: [],
+            later: []
+        };
+
+        (this.tasks || []).forEach(task => {
+            if (!task.due_date) {
+                buckets.later.push(task);
+                return;
+            }
+            const due = new Date(task.due_date);
+            const diffDays = Math.floor((due - startOfToday) / (1000*60*60*24));
+            if (due < startOfToday && task.status !== 'completed') buckets.overdue.push(task);
+            else if (due >= startOfToday && due <= endOfToday) buckets.today.push(task);
+            else if (diffDays === 1) buckets.tomorrow.push(task);
+            else if (diffDays >= 2 && diffDays <= 7) buckets.thisWeek.push(task);
+            else buckets.later.push(task);
+        });
+
+        const renderGroup = (title, items, icon) => `
+            <div class="deadline-group">
+                <div class="deadline-group-header">
+                    <i class="fas ${icon}"></i> ${title} 
+                    <span class="count">${items.length}</span>
+                </div>
+                <div class="deadline-group-body">
+                    ${items.length ? items.map(t => `
+                        <div class="deadline-item ${t.status === 'completed' ? 'done' : ''}" onclick="window.app.showTaskDetail(${t.id})">
+                            <div>
+                                <div class="title">${this.escapeHtml(t.title)}</div>
+                                <div class="meta">
+                                    <span class="date">${this.formatDate(t.due_date)}</span>
+                                    <span class="priority badge-${t.priority || 'medium'}">${(t.priority || 'medium').toUpperCase()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="empty">No tasks in this category</div>'}
+                </div>
+            </div>`;
+
+        container.innerHTML = [
+            renderGroup('Overdue', buckets.overdue, 'fa-exclamation-triangle'),
+            renderGroup('Today', buckets.today, 'fa-calendar-day'),
+            renderGroup('Tomorrow', buckets.tomorrow, 'fa-sun'),
+            renderGroup('This Week', buckets.thisWeek, 'fa-calendar-week'),
+            renderGroup('Later', buckets.later, 'fa-calendar')
+        ].join('');
+    }
+
+    // Calendar view: Simple month grid with due-date dots
+    renderCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        const title = document.getElementById('calendarTitle');
+        if (!grid || !title) return;
+
+        // Persist current month state
+        if (!this._calRef) {
+            const now = new Date();
+            this._calRef = { year: now.getFullYear(), month: now.getMonth() };
+            // Bind controls once
+            const prev = document.getElementById('calPrev');
+            const next = document.getElementById('calNext');
+            if (prev && !prev._bound) {
+                prev._bound = true;
+                prev.addEventListener('click', () => {
+                    this._calRef.month -= 1;
+                    if (this._calRef.month < 0) { this._calRef.month = 11; this._calRef.year -= 1; }
+                    this.renderCalendar();
+                });
+            }
+            if (next && !next._bound) {
+                next._bound = true;
+                next.addEventListener('click', () => {
+                    this._calRef.month += 1;
+                    if (this._calRef.month > 11) { this._calRef.month = 0; this._calRef.year += 1; }
+                    this.renderCalendar();
+                });
+            }
+        }
+
+        const { year, month } = this._calRef;
+        const first = new Date(year, month, 1);
+        const startDay = first.getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        title.textContent = `${first.toLocaleString('default', { month: 'long' })} ${year}`;
+
+        // Build a map day -> tasks
+        const byDay = new Map();
+        (this.tasks || []).forEach(t => {
+            if (!t.due_date) return;
+            const d = new Date(t.due_date);
+            if (d.getFullYear() === year && d.getMonth() === month) {
+                const key = d.getDate();
+                if (!byDay.has(key)) byDay.set(key, []);
+                byDay.get(key).push(t);
+            }
+        });
+
+        const cells = [];
+        // Leading blanks
+        for (let i = 0; i < startDay; i++) {
+            cells.push('<div class="cal-cell blank"></div>');
+        }
+        
+        // Days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const items = byDay.get(day) || [];
+            const dots = items.slice(0, 3).map(t => 
+                `<span class="dot dot-${t.priority || 'medium'}" title="${this.escapeHtml(t.title)}"></span>`
+            ).join('');
+            const more = items.length > 3 ? `<span class="more">+${items.length - 3}</span>` : '';
+            
+            cells.push(`
+                <div class="cal-cell" onclick="window.app.showDayTasks(${year}, ${month}, ${day})">
+                    <div class="date">${day}</div>
+                    <div class="dots">${dots}${more}</div>
+                </div>
+            `);
+        }
+        
+        grid.innerHTML = cells.join('');
+    }
+    
+    // Helper method to show tasks for a specific day
+    showDayTasks(year, month, day) {
+        const dayTasks = (this.tasks || []).filter(t => {
+            if (!t.due_date) return false;
+            const d = new Date(t.due_date);
+            return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+        });
+        
+        if (dayTasks.length > 0) {
+            const date = new Date(year, month, day);
+            const dateStr = date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            let message = `Tasks due on ${dateStr}:\n\n`;
+            dayTasks.forEach(task => {
+                message += `• ${task.title} (${task.priority || 'medium'} priority)\n`;
+            });
+            
+            alert(message);
+        } else {
+            const date = new Date(year, month, day);
+            const dateStr = date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            this.showNotification(`No tasks due on ${dateStr}`, 'info');
+        }
     }
 
     showModal(modalId) {
