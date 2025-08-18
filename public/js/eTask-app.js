@@ -1141,6 +1141,24 @@ class TaskFlowApp {
         });
         
         console.log('Task list population completed');
+        // Delegate description expand/collapse once per page
+        if (!this._descDelegated) {
+            this._descDelegated = true;
+            const container = document.getElementById('taskList');
+            if (container) {
+                container.addEventListener('click', (e) => {
+                    const btn = e.target.closest('[data-action="toggle-desc"]');
+                    if (!btn) return;
+                    const item = btn.closest('.task-item');
+                    if (!item) return;
+                    const desc = item.querySelector('.task-description');
+                    if (!desc) return;
+                    const expanded = desc.classList.toggle('expanded');
+                    btn.textContent = expanded ? 'Show less' : 'Show more';
+                    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                });
+            }
+        }
     }
 
     createTaskListItem(task) {
@@ -1180,7 +1198,8 @@ class TaskFlowApp {
                         </button>
                     </div>
                 </div>
-                <div class="task-description">${task.description || 'No description provided'}</div>
+                <div class="task-description" data-expanded="false">${this.escapeHtml(task.description || 'No description provided')}</div>
+                ${task.description && task.description.length > 160 ? '<button class="show-more" data-action="toggle-desc" aria-expanded="false">Show more</button>' : ''}
                 <div class="task-meta">
                     <div class="task-assignee">
                         ${assignedUser ? `
