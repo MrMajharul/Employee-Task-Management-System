@@ -816,7 +816,22 @@ app.post('/api/tasks', authenticateToken, (req, res) => {
                 console.error('Error fetching created task:', err);
                 return res.status(500).json({ error: 'Task created but failed to retrieve details' });
             }
-            
+            // Fire-and-forget: create a notification for the assignee
+            try {
+                const createdTask = taskResults[0] || {};
+                const pr = (priority || createdTask.priority || 'medium');
+                const notifPriority = pr === 'urgent' || pr === 'high' ? 'high' : (pr === 'low' ? 'low' : 'medium');
+                notifyTaskAssigned({
+                    recipientId: assigned_to,
+                    senderId: req.user.id,
+                    taskId,
+                    taskTitle: title,
+                    priority: notifPriority
+                });
+            } catch (e) {
+                console.warn('Could not enqueue assignment notification:', e.message);
+            }
+
             res.status(201).json({
                 message: 'Task created successfully',
                 task: taskResults[0]
@@ -914,6 +929,7 @@ app.put('/api/tasks/:id', authenticateToken, (req, res) => {
                 }
                 
                 const task = taskResults[0];
+                const originalAssignee = task.assigned_to;
                 const userRole = req.user.role;
                 
                 // Check permissions
@@ -949,7 +965,27 @@ app.put('/api/tasks/:id', authenticateToken, (req, res) => {
                                 res.status(500).json({ error: 'Transaction commit error' });
                             });
                         }
-                        
+                        // After successful update, if assignee changed, send notification
+                        const assigneeChanged = typeof assigned_to !== 'undefined' && String(assigned_to) !== String(originalAssignee || '');
+                        if (assigneeChanged) {
+                            // Fetch task title and priority to craft notification (non-blocking)
+                            db.query('SELECT title, priority FROM tasks WHERE id = ? LIMIT 1', [id], (qe, rows) => {
+                                const t = rows && rows[0] ? rows[0] : { title, priority };
+                                const pr = (priority || t.priority || 'medium');
+                                const notifPriority = pr === 'urgent' || pr === 'high' ? 'high' : (pr === 'low' ? 'low' : 'medium');
+                                try {
+                                    notifyTaskAssigned({
+                                        recipientId: assigned_to,
+                                        senderId: req.user.id,
+                                        taskId: id,
+                                        taskTitle: t.title || title || 'Task',
+                                        priority: notifPriority
+                                    });
+                                } catch (e) {
+                                    console.warn('Failed to create assignment notification on update:', e.message);
+                                }
+                            });
+                        }
                         res.json({ message: 'Task updated successfully' });
                     });
                 });
@@ -1089,11 +1125,11 @@ app.delete('/api/tasks/:taskId/files/:fileId', authenticateToken, (req, res) => 
     });
 });
 
-// Get user notifications
+// Get user notifications (new schema)
 app.get('/api/notifications', authenticateToken, (req, res) => {
     const userId = req.user.id;
     const { limit = 20, unread_only = false } = req.query;
-    
+
     let query = `
         SELECT 
             n.id,
@@ -1104,6 +1140,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
             n.priority,
             n.created_at,
             n.read_at,
+            n.task_id,
             t.title as task_title,
             sender.full_name as sender_name
         FROM notifications n
@@ -1111,16 +1148,14 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
         LEFT JOIN users sender ON n.sender_id = sender.id
         WHERE n.recipient_id = ?
     `;
-    
-    let params = [userId];
-    
-    if (unread_only === 'true') {
+
+    const params = [userId];
+    if (String(unread_only) === 'true') {
         query += ' AND n.is_read = FALSE';
     }
-    
     query += ' ORDER BY n.created_at DESC LIMIT ?';
-    params.push(parseInt(limit));
-    
+    params.push(parseInt(limit, 10));
+
     db.query(query, params, (err, results) => {
         if (err) {
             console.error('Notifications query error:', err);
@@ -1130,54 +1165,24 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
     });
 });
 
-// Mark notification as read
+// Mark notification as read (new schema)
 app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
-    
-    // Use transaction to ensure atomic update
+
     db.beginTransaction((err) => {
-        if (err) {
-            return res.status(500).json({ error: 'Transaction error' });
-        }
-        
-        // Check if notification belongs to user
+        if (err) return res.status(500).json({ error: 'Transaction error' });
+
         const checkQuery = 'SELECT id FROM notifications WHERE id = ? AND recipient_id = ?';
-        
         db.query(checkQuery, [id, userId], (err, results) => {
-            if (err) {
-                return db.rollback(() => {
-                    res.status(500).json({ error: 'Database error' });
-                });
-            }
-            
-            if (results.length === 0) {
-                return db.rollback(() => {
-                    res.status(404).json({ error: 'Notification not found' });
-                });
-            }
-            
-            // Update notification
-            const updateQuery = `
-                UPDATE notifications 
-                SET is_read = TRUE, read_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            `;
-            
-            db.query(updateQuery, [id], (err, result) => {
-                if (err) {
-                    return db.rollback(() => {
-                        res.status(500).json({ error: 'Database error' });
-                    });
-                }
-                
+            if (err) return db.rollback(() => res.status(500).json({ error: 'Database error' }));
+            if (results.length === 0) return db.rollback(() => res.status(404).json({ error: 'Notification not found' }));
+
+            const updateQuery = 'UPDATE notifications SET is_read = TRUE, read_at = CURRENT_TIMESTAMP WHERE id = ?';
+            db.query(updateQuery, [id], (err) => {
+                if (err) return db.rollback(() => res.status(500).json({ error: 'Database error' }));
                 db.commit((err) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            res.status(500).json({ error: 'Transaction commit error' });
-                        });
-                    }
-                    
+                    if (err) return db.rollback(() => res.status(500).json({ error: 'Transaction commit error' }));
                     res.json({ message: 'Notification marked as read' });
                 });
             });
@@ -1324,32 +1329,7 @@ app.put('/api/profile', authenticateToken, (req, res) => {
     }
 });
 
-// Get notifications
-app.get('/api/notifications', authenticateToken, (req, res) => {
-    const userId = req.user.id;
-    
-    const query = 'SELECT * FROM notifications WHERE recipient = ? ORDER BY date DESC';
-    db.query(query, [userId], (err, results) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json(results);
-    });
-});
-
-// Mark notification as read
-app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
-    const { id } = req.params;
-    const userId = req.user.id;
-    
-    const query = 'UPDATE notifications SET is_read = TRUE WHERE id = ? AND recipient = ?';
-    db.query(query, [id, userId], (err, result) => {
-        if (err) {
-            return res.status(500).json({ error: 'Database error' });
-        }
-        res.json({ message: 'Notification marked as read' });
-    });
-});
+// NOTE: Removed duplicate legacy notification endpoints using old schema (recipient/date)
 
 // Update task status for Kanban board
 app.put('/api/tasks/:id/status', authenticateToken, (req, res) => {
@@ -1605,6 +1585,36 @@ app.get('/api/user/export-data', authenticateToken, (req, res) => {
 // Socket.IO for real-time messaging
 const activeUsers = new Map();
 const chatRooms = new Map();
+
+// Helper: create and emit a task assignment notification
+function notifyTaskAssigned({ recipientId, senderId, taskId, taskTitle, priority = 'medium' }) {
+    if (!recipientId || !taskId) return;
+    const title = 'New Task Assigned';
+    const message = `You have been assigned a new task: "${taskTitle || 'Task'}"`;
+    const sql = `INSERT INTO notifications (recipient_id, sender_id, task_id, type, title, message, priority)
+                 VALUES (?, ?, ?, 'task_assigned', ?, ?, ?)`;
+    const params = [recipientId, senderId || null, taskId, title, message, priority];
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            return console.warn('Failed to insert notification:', err.message);
+        }
+        // Emit to recipient if online
+        const payload = {
+            id: result.insertId,
+            type: 'task_assigned',
+            title,
+            message,
+            is_read: 0,
+            priority,
+            task_id: taskId,
+            created_at: new Date()
+        };
+        const recipient = activeUsers.get(recipientId);
+        if (recipient) {
+            io.to(recipient.socketId).emit('notification', payload);
+        }
+    });
+}
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
