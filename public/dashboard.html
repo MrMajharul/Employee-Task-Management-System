@@ -491,6 +491,24 @@
             </div>
         </div>
 
+        <!-- Employees View -->
+        <div id="employeesView" class="main-view">
+            <div class="task-header">
+                <div class="task-title-section">
+                    <h2 class="section-title">Employees</h2>
+                </div>
+                <div class="filter-actions" style="gap: 12px; display: flex; align-items: center;">
+                    <div class="search-container">
+                        <input type="text" class="search-input" placeholder="Search employees..." id="employeeSearch">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+            </div>
+            <div id="employeesList" class="employees-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">
+                <!-- Employees will render here -->
+            </div>
+        </div>
+
         <!-- Messenger View -->
         <div id="messengerView" class="main-view">
             <div class="messenger-container">
@@ -1358,7 +1376,10 @@
                     app.showNotification('E-Signature module coming soon!', 'info');
                     break;
                 case 'employees':
-                    app.showNotification('Employees module coming soon!', 'info');
+                    showMainView('employees');
+                    if (window.app && typeof window.app.renderEmployeesList === 'function') {
+                        window.app.renderEmployeesList();
+                    }
                     break;
                 case 'subscription':
                     app.showNotification('Subscription module coming soon!', 'info');

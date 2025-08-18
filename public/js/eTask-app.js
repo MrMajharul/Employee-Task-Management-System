@@ -654,18 +654,48 @@ class TaskFlowApp {
 
     async handleTaskSubmit(e) {
         e.preventDefault();
-        
-        const taskData = {
-            title: document.getElementById('taskTitle').value,
-            description: document.getElementById('taskDescription').value,
-            assigned_to: document.getElementById('taskAssignedTo').value || null,
-            due_date: document.getElementById('taskDueDate').value || null,
-            status: document.getElementById('taskStatus').value || 'pending',
-            priority: document.getElementById('taskPriority').value || 'medium'
-        };
-        
+        // Grab fields
+        const titleEl = document.getElementById('taskTitle');
+        const descEl = document.getElementById('taskDescription');
+        const assigneeEl = document.getElementById('taskAssignedTo');
+        const dueEl = document.getElementById('taskDueDate');
+        const statusEl = document.getElementById('taskStatus');
+        const priorityEl = document.getElementById('taskPriority');
+        const saveBtn = e.submitter || document.querySelector('#taskForm .btn-save');
+
+        const title = (titleEl?.value || '').trim();
+        const description = (descEl?.value || '').trim();
+        let assigned_to = assigneeEl?.value || '';
+        const due_date = dueEl?.value || null;
+        const status = statusEl?.value || 'pending';
+        const priority = priorityEl?.value || 'medium';
+
+        // Client-side validation and sensible defaults
+        if (!title) {
+            this.showNotification('Please enter a task title.', 'error');
+            titleEl?.focus();
+            return;
+        }
+        // Default to current user if no assignee selected to prevent server 400
+        if (!assigned_to) {
+            if (!this.currentUser?.id) {
+                this.showNotification('You must be logged in to create tasks.', 'error');
+                return;
+            }
+            assigned_to = this.currentUser.id;
+        }
+
+        const taskData = { title, description, assigned_to, due_date, status, priority };
+
         const taskId = document.getElementById('taskForm').dataset.taskId;
-        
+
+        // Prevent double submit and show loading state
+        const originalText = saveBtn ? saveBtn.textContent : '';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = taskId ? 'Saving…' : 'Creating…';
+        }
+
         try {
             if (taskId) {
                 await this.apiCall(`/tasks/${taskId}`, {
@@ -683,12 +713,18 @@ class TaskFlowApp {
                 });
                 this.showNotification('Task created successfully!', 'success');
             }
-            
+
             this.closeModal();
             await this.loadTasks();
-            
+
         } catch (error) {
-            this.showNotification(error.message, 'error');
+            // Surface server validation errors clearly
+            this.showNotification(error.message || 'Failed to save task', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText || 'Save Task';
+            }
         }
     }
 
@@ -1350,6 +1386,47 @@ class TaskFlowApp {
         this.populateTeamSidebar();
     }
 
+    // Employees view
+    renderEmployeesList() {
+        const container = document.getElementById('employeesList');
+        if (!container) return;
+
+        const term = (document.getElementById('employeeSearch')?.value || '').toLowerCase().trim();
+        const users = (this.users || []).filter(u => {
+            if (!term) return true;
+            const hay = `${u.full_name || ''} ${u.username || ''} ${u.email || ''} ${u.role || ''}`.toLowerCase();
+            return hay.includes(term);
+        });
+
+        if (!users.length) {
+            container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1; text-align:center; padding:24px;">No employees found</div>';
+            return;
+        }
+
+        container.innerHTML = users.map(u => {
+            const name = this.escapeHtml(u.full_name || u.username || 'User');
+            const role = this.escapeHtml(u.role || 'employee');
+            const email = this.escapeHtml(u.email || '');
+            const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=667eea&color=fff`;
+            return `
+                <div class="employee-card" style="background:#fff; border:1px solid #e9ecef; border-radius:12px; padding:16px; display:flex; gap:12px; align-items:center; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                    <img src="${avatar}" alt="${name}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;" />
+                    <div style="flex:1;">
+                        <div style="font-weight:600; color:#333;">${name}</div>
+                        <div style="font-size:12px; color:#666; text-transform:capitalize;">${role}</div>
+                        ${email ? `<div style="font-size:12px; color:#888;">${email}</div>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+
+        // Bind search once
+        const search = document.getElementById('employeeSearch');
+        if (search && !search._bound) {
+            search._bound = true;
+            search.addEventListener('input', () => this.renderEmployeesList());
+        }
+    }
+
     populateTeamSidebar() {
         const teamList = document.getElementById('teamList');
         if (!teamList) return;
@@ -1484,6 +1561,83 @@ class TaskFlowApp {
             
             startBtn.style.display = task.status === 'pending' ? 'block' : 'none';
             finishBtn.style.display = task.status === 'in_progress' ? 'block' : 'none';
+
+            // Bind Start/Finish handlers (bind once)
+            if (startBtn && !startBtn._bound) {
+                startBtn._bound = true;
+                startBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = Number(document.getElementById('taskDetailModal').dataset.taskId);
+                    if (id) this.updateTaskStatus(id, 'in_progress');
+                });
+            }
+            if (finishBtn && !finishBtn._bound) {
+                finishBtn._bound = true;
+                finishBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = Number(document.getElementById('taskDetailModal').dataset.taskId);
+                    if (id) this.updateTaskStatus(id, 'completed');
+                });
+            }
+
+            // Like button (toggle UI only for now)
+            const likeBtn = document.querySelector('.like-btn');
+            if (likeBtn && !likeBtn._bound) {
+                likeBtn._bound = true;
+                likeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    likeBtn.classList.toggle('active');
+                    this.showNotification(likeBtn.classList.contains('active') ? 'Liked' : 'Unliked', 'info');
+                });
+            }
+
+            // Video call button (placeholder action)
+            const videoBtn = document.querySelector('.video-call-btn');
+            if (videoBtn && !videoBtn._bound) {
+                videoBtn._bound = true;
+                videoBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.showNotification('Video call feature is not configured yet.', 'warning');
+                });
+            }
+
+            // More... dropdown toggle
+            const moreBtn = document.querySelector('.task-header-actions .more-btn');
+            if (moreBtn && !moreBtn._bound) {
+                moreBtn._bound = true;
+                moreBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const dd = moreBtn.closest('.dropdown');
+                    if (dd) dd.classList.toggle('open');
+                });
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (evt) => {
+                    const dd = moreBtn.closest('.dropdown');
+                    if (!dd) return;
+                    if (!dd.contains(evt.target)) dd.classList.remove('open');
+                }, { once: true });
+            }
+
+            // Comments input: allow quick add (frontend only)
+            const commentField = document.querySelector('#commentsTab .comment-field');
+            if (commentField && !commentField._bound) {
+                commentField._bound = true;
+                commentField.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && commentField.value.trim()) {
+                        e.preventDefault();
+                        const list = document.getElementById('commentsList');
+                        const text = this.escapeHtml(commentField.value.trim());
+                        const now = new Date().toLocaleString();
+                        const item = document.createElement('div');
+                        item.className = 'comment-item';
+                        item.innerHTML = `<div class="comment-text">${text}</div><div class="comment-meta">You • ${now}</div>`;
+                        list?.prepend(item);
+                        const cnt = document.getElementById('commentsCount');
+                        if (cnt) cnt.textContent = String(Number(cnt.textContent || '0') + 1);
+                        commentField.value = '';
+                    }
+                });
+            }
             
             // Setup tab switching
             this.setupTaskDetailTabs();
@@ -1749,12 +1903,20 @@ class TaskFlowApp {
             'efficiency': 'Efficiency Analytics',
             'supervising': 'Team Supervision',
             'messenger': 'Messenger',
-            'documents': 'Online Documents'
+            'documents': 'Online Documents',
+            'employees': 'Employees'
         };
 
         document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
         if (viewName === 'documents') {
             this.loadDocuments?.();
+        } else if (viewName === 'employees') {
+            // Ensure users are available and render list
+            if (!this.users || this.users.length === 0) {
+                this.loadUsers().finally(() => this.renderEmployeesList?.());
+            } else {
+                this.renderEmployeesList?.();
+            }
         }
     }
 
@@ -2703,6 +2865,60 @@ window.debugModals = () => {
         console.log('Photo Preview:', photoPreview);
     }
 };
+
+// Fallback handlers for inline actions in Task Detail modal
+function copyTask() {
+    const id = Number(document.getElementById('taskDetailModal')?.dataset.taskId);
+    if (!id || !window.app) return;
+    const task = (window.app.tasks || []).find(t => Number(t.id) === id);
+    if (!task) return;
+    const payload = {
+        title: `${task.title} (Copy)`,
+        description: task.description,
+        assigned_to: task.assigned_to || window.app.currentUser?.id,
+        due_date: task.due_date,
+        priority: task.priority || 'medium',
+        estimated_hours: task.estimated_hours || null
+    };
+    window.app.apiCall('/tasks', { method: 'POST', body: JSON.stringify(payload) })
+        .then(() => window.app.refreshTasks())
+        .then(() => window.app.showNotification('Task copied', 'success'))
+        .catch(err => window.app.showNotification(err.message || 'Copy failed', 'error'));
+}
+
+function createSubtask() {
+    window.app?.showNotification('Subtasks are not implemented yet.', 'warning');
+}
+
+function addToDailyPlan() {
+    window.app?.showNotification('Daily plan integration is not configured.', 'warning');
+}
+
+function delegateTask() {
+    window.app?.showNotification('Delegation modal coming soon.', 'info');
+}
+
+function deferTask() {
+    window.app?.showNotification('Defer options not available yet.', 'info');
+}
+
+function deleteTaskFromDetail() {
+    const id = Number(document.getElementById('taskDetailModal')?.dataset.taskId);
+    if (id && window.app) window.app.deleteTask(id);
+}
+
+function editTaskFromDetail() {
+    const id = Number(document.getElementById('taskDetailModal')?.dataset.taskId);
+    if (id && window.app) window.app.editTask(id);
+}
+
+function showAddChecklistForm() {
+    // Focus the checklist input if present
+    const input = document.getElementById('checklistNewTitle');
+    const form = document.getElementById('checklistAddForm');
+    if (form) form.style.display = 'inline-flex';
+    if (input) input.focus();
+}
 
 window.debugSidebar = () => {
     console.log('=== SIDEBAR DEBUG ===');
