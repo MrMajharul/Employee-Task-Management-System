@@ -1326,69 +1326,7 @@
             }
         }
 
-        // Navigation function for sidebar modules
-        function navigateToModule(moduleName) {
-            // Update active state in sidebar
-            document.querySelectorAll('.app-sidebar-nav a').forEach(link => {
-                link.classList.remove('active');
-            });
-            document.querySelector(`[data-route="${moduleName}"]`).classList.add('active');
-            
-            // Close sidebar after navigation
-            document.getElementById('appSidebar').classList.remove('active');
-            
-            // Handle different modules
-            switch(moduleName) {
-                case 'tasks':
-                    showMainView('tasks');
-                    break;
-                case 'settings':
-                    showSettingsModal();
-                    break;
-                case 'messenger':
-                    showMainView('messenger');
-                    if (window.messenger) {
-                        window.messenger.initializeMessenger();
-                    }
-                    break;
-                case 'feed':
-                    app.showNotification('Feed module coming soon!', 'info');
-                    break;
-                case 'calendar':
-                    app.showNotification('Calendar module coming soon!', 'info');
-                    break;
-                case 'documents':
-                    showMainView('documents');
-                    break;
-                case 'webmail':
-                    app.showNotification('Webmail module coming soon!', 'info');
-                    break;
-                case 'groupworks':
-                    app.showNotification('Group Works module coming soon!', 'info');
-                    break;
-                case 'booking':
-                    app.showNotification('Booking module coming soon!', 'info');
-                    break;
-                case 'inventory':
-                    app.showNotification('Inventory Management module coming soon!', 'info');
-                    break;
-                case 'esignature':
-                    app.showNotification('E-Signature module coming soon!', 'info');
-                    break;
-                case 'employees':
-                    showMainView('employees');
-                    if (window.app && typeof window.app.renderEmployeesList === 'function') {
-                        window.app.renderEmployeesList();
-                    }
-                    break;
-                case 'subscription':
-                    app.showNotification('Subscription module coming soon!', 'info');
-                    break;
-                default:
-                    // Unknown module - silently ignore
-                    break;
-            }
-        }
+    // Navigation function moved to public/js/sidebar.js
         
         function logout() {
             if (typeof app !== 'undefined') {
@@ -1467,6 +1405,11 @@
         });
     </script>
     <script src="js/eTask-app.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/tasks.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="js/scrum.js"></script>
+    <script src="js/documents.js"></script>
     <script src="js/messenger.js"></script>
 </body>
 </html>

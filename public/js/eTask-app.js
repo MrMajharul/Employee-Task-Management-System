@@ -172,7 +172,163 @@ class TaskFlowApp {
         }
     }
 
-    // Basic HTML escaper for safe rendering
+    // Documents interface setup - comprehensive wiring for all document functionality
+    setupDocumentsInterface() {
+        // Search functionality
+        const docSearch = document.getElementById('docSearch');
+        if (docSearch && !docSearch._bound) {
+            docSearch._bound = true;
+            docSearch.addEventListener('input', () => this.loadDocuments());
+        }
+
+        // New document button
+        const docNewButton = document.getElementById('docNewButton');
+        if (docNewButton && !docNewButton._bound) {
+            docNewButton._bound = true;
+            docNewButton.addEventListener('click', async () => {
+                const title = prompt('Document title');
+                if (!title) return;
+                try {
+                    await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type: 'document' }) });
+                    this.loadDocuments();
+                    this.showNotification('Document created successfully!', 'success');
+                } catch (err) {
+                    this.showNotification(err.message || 'Failed to create document', 'error');
+                }
+            });
+        }
+
+        // Document template buttons
+        document.querySelectorAll('.doc-template').forEach(btn => {
+            if (btn._bound) return;
+            btn._bound = true;
+            btn.addEventListener('click', async (e) => {
+                const type = e.currentTarget.dataset.type;
+                if (!type) return;
+                const title = prompt(`New ${type} title`);
+                if (!title) return;
+                try {
+                    await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type }) });
+                    this.loadDocuments();
+                    this.showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} created successfully!`, 'success');
+                } catch (err) {
+                    this.showNotification(err.message || `Failed to create ${type}`, 'error');
+                }
+            });
+        });
+
+        // File upload from computer
+        const docUploadInput = document.getElementById('docUploadInput');
+        if (docUploadInput && !docUploadInput._bound) {
+            docUploadInput._bound = true;
+            docUploadInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Validate file size (10MB limit)
+                const maxSize = 10 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    this.showNotification('File size must be less than 10MB', 'error');
+                    e.target.value = '';
+                    return;
+                }
+
+                try {
+                    const form = new FormData();
+                    form.append('file', file);
+                    form.append('title', file.name);
+                    
+                    const res = await fetch(`${this.API_BASE_URL}/documents/upload`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${this.authToken}` },
+                        body: form
+                    });
+                    
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({ error: 'Upload failed' }));
+                        throw new Error(errorData.error || 'Upload failed');
+                    }
+
+                    this.showNotification('Document uploaded successfully!', 'success');
+                    this.loadDocuments();
+                } catch (err) {
+                    this.showNotification(err.message || 'Upload failed', 'error');
+                }
+                e.target.value = '';
+            });
+        }
+
+        // View toggle buttons (List, Grid, Tile)
+        this.setupDocumentViewToggles();
+
+        // Filter buttons (Active, Shared, Published)
+        this.setupDocumentFilters();
+    }
+
+    setupDocumentViewToggles() {
+        const viewButtons = ['docViewList', 'docViewGrid', 'docViewTile'];
+        viewButtons.forEach(buttonId => {
+            const btn = document.getElementById(buttonId);
+            if (btn && !btn._bound) {
+                btn._bound = true;
+                btn.addEventListener('click', () => {
+                    // Update active state
+                    viewButtons.forEach(id => {
+                        document.getElementById(id)?.classList.remove('active');
+                    });
+                    btn.classList.add('active');
+                    
+                    // Apply view style to documents list
+                    const docsList = document.getElementById('documentsList');
+                    if (docsList) {
+                        docsList.className = 'documents-list';
+                        if (buttonId === 'docViewGrid') {
+                            docsList.classList.add('grid-view');
+                        } else if (buttonId === 'docViewTile') {
+                            docsList.classList.add('tile-view');
+                        }
+                        // List view is default, no additional class needed
+                    }
+                });
+            }
+        });
+    }
+
+    setupDocumentFilters() {
+        const filterButtons = ['docFilterActive', 'docFilterShared', 'docFilterPublished'];
+        filterButtons.forEach(buttonId => {
+            const btn = document.getElementById(buttonId);
+            if (btn && !btn._bound) {
+                btn._bound = true;
+                btn.addEventListener('click', async () => {
+                    // Update active state
+                    filterButtons.forEach(id => {
+                        document.getElementById(id)?.classList.remove('active');
+                    });
+                    btn.classList.add('active');
+                    
+                    // Apply filter and reload documents
+                    let filter = '';
+                    if (buttonId === 'docFilterShared') filter = 'shared';
+                    else if (buttonId === 'docFilterPublished') filter = 'published';
+                    
+                    try {
+                        const q = document.getElementById('docSearch')?.value || '';
+                        const qs = new URLSearchParams();
+                        if (q) qs.append('q', q);
+                        if (filter) qs.append('filter', filter);
+                        
+                        const queryString = qs.toString() ? `?${qs.toString()}` : '';
+                        const docs = await this.apiCall(`/documents${queryString}`);
+                        this.documents = Array.isArray(docs) ? docs : [];
+                        this.renderDocumentsList();
+                    } catch (err) {
+                        this.showNotification('Failed to filter documents', 'error');
+                    }
+                });
+            }
+        });
+    }
     escapeHtml(str) {
         if (str == null) return '';
         return String(str)
@@ -412,54 +568,8 @@ class TaskFlowApp {
             });
         }
 
-                // Documents UI wiring
-                const docSearch = document.getElementById('docSearch');
-                if (docSearch) {
-                    docSearch.addEventListener('input', () => this.loadDocuments());
-                }
-                const docNewButton = document.getElementById('docNewButton');
-                if (docNewButton) {
-                    docNewButton.addEventListener('click', async () => {
-                        const title = prompt('Document title');
-                        if (!title) return;
-                        await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type: 'document' }) });
-                        this.loadDocuments();
-                    });
-                }
-                document.querySelectorAll('.doc-template').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        const type = e.currentTarget.dataset.type;
-                        if (!type) return;
-                        const title = prompt(`New ${type} title`);
-                        if (!title) return;
-                        await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type }) });
-                        this.loadDocuments();
-                    });
-                });
-                const docUploadInput = document.getElementById('docUploadInput');
-                if (docUploadInput) {
-                    docUploadInput.addEventListener('change', async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        const form = new FormData();
-                        form.append('file', file);
-                        const res = await fetch(`${this.API_BASE_URL}/documents/upload`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${this.authToken}` },
-                            body: form
-                        });
-                        if (!res.ok) {
-                            const msg = await res.text();
-                            this.showNotification(`Upload failed: ${msg}`, 'error');
-                        } else {
-                            this.showNotification('Document uploaded', 'success');
-                            this.loadDocuments();
-                        }
-                        e.target.value = '';
-                    });
-                }
-
-                // Enhanced invite functionality
+        // Documents UI wiring
+        this.setupDocumentsInterface();                // Enhanced invite functionality
         const inviteBtn = document.querySelector('.invite-btn');
         if (inviteBtn) {
             inviteBtn.addEventListener('click', () => this.openInviteModal());
@@ -1910,6 +2020,8 @@ class TaskFlowApp {
         document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
         if (viewName === 'documents') {
             this.loadDocuments?.();
+            // Setup document interface if not already done
+            setTimeout(() => this.setupDocumentsInterface?.(), 100);
         } else if (viewName === 'employees') {
             // Ensure users are available and render list
             if (!this.users || this.users.length === 0) {
