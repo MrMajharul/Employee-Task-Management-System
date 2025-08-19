@@ -22,9 +22,13 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3002;
 
 // Middleware
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+app.use(cors({
+    origin: corsOrigin === '*' ? true : corsOrigin.split(',').map(o => o.trim()),
+    credentials: true
+}));
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
@@ -221,6 +225,11 @@ const authenticateToken = (req, res, next) => {
 // Routes
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
 // Google Login endpoint
@@ -1187,6 +1196,261 @@ app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
                 });
             });
         });
+    });
+});
+
+// ========== PROJECTS API ==========
+
+// Get all projects for current user
+app.get('/api/projects', authenticateToken, (req, res) => {
+    const query = `
+        SELECT 
+            p.*,
+            u.full_name as created_by_name,
+            pm.role as user_role,
+            COUNT(DISTINCT t.id) as task_count,
+            COUNT(DISTINCT pm2.id) as member_count,
+            AVG(t.progress_percentage) as avg_progress
+        FROM projects p
+        LEFT JOIN users u ON p.created_by = u.id
+        LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = ?
+        LEFT JOIN project_members pm2 ON p.id = pm2.project_id
+        LEFT JOIN tasks t ON p.id = t.project_id
+        WHERE (p.created_by = ? OR pm.user_id = ?) AND p.is_archived = FALSE
+        GROUP BY p.id, p.name, p.description, p.created_by, p.status, p.priority, 
+                 p.start_date, p.due_date, p.completion_date, p.budget, 
+                 p.progress_percentage, p.color, p.is_archived, p.created_at, 
+                 p.updated_at, u.full_name, pm.role
+        ORDER BY p.created_at DESC
+    `;
+    
+    db.query(query, [req.user.id, req.user.id, req.user.id], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to fetch projects' });
+        }
+        res.json(results);
+    });
+});
+
+// Get single project
+app.get('/api/projects/:id', authenticateToken, (req, res) => {
+    const projectId = req.params.id;
+    
+    const query = `
+        SELECT 
+            p.*,
+            u.full_name as created_by_name,
+            pm.role as user_role
+        FROM projects p
+        LEFT JOIN users u ON p.created_by = u.id
+        LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = ?
+        WHERE p.id = ? AND (p.created_by = ? OR pm.user_id = ?)
+    `;
+    
+    db.query(query, [req.user.id, projectId, req.user.id, req.user.id], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to fetch project' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Project not found or access denied' });
+        }
+        
+        res.json(results[0]);
+    });
+});
+
+// Create new project
+app.post('/api/projects', authenticateToken, (req, res) => {
+    const { name, description, priority, start_date, due_date, color, budget } = req.body;
+    
+    if (!name || name.trim().length === 0) {
+        return res.status(400).json({ error: 'Project name is required' });
+    }
+    
+    db.beginTransaction((err) => {
+        if (err) return res.status(500).json({ error: 'Transaction error' });
+        
+        const projectQuery = `
+            INSERT INTO projects (name, description, created_by, priority, start_date, due_date, color, budget)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        
+        db.query(projectQuery, [
+            name.trim(),
+            description || null,
+            req.user.id,
+            priority || 'medium',
+            start_date || null,
+            due_date || null,
+            color || '#3B82F6',
+            budget || null
+        ], (err, result) => {
+            if (err) {
+                return db.rollback(() => {
+                    console.error('Database error:', err);
+                    res.status(500).json({ error: 'Failed to create project' });
+                });
+            }
+            
+            const projectId = result.insertId;
+            
+            // Add creator as project owner
+            const memberQuery = `
+                INSERT INTO project_members (project_id, user_id, role)
+                VALUES (?, ?, 'owner')
+            `;
+            
+            db.query(memberQuery, [projectId, req.user.id], (err) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Database error:', err);
+                        res.status(500).json({ error: 'Failed to set project ownership' });
+                    });
+                }
+                
+                db.commit((err) => {
+                    if (err) {
+                        return db.rollback(() => {
+                            res.status(500).json({ error: 'Transaction commit error' });
+                        });
+                    }
+                    
+                    res.status(201).json({ 
+                        message: 'Project created successfully',
+                        projectId: projectId 
+                    });
+                });
+            });
+        });
+    });
+});
+
+// Update project
+app.put('/api/projects/:id', authenticateToken, (req, res) => {
+    const projectId = req.params.id;
+    const { name, description, status, priority, start_date, due_date, color, budget, progress_percentage } = req.body;
+    
+    // Check if user has permission to edit
+    const permissionQuery = `
+        SELECT p.id, pm.role 
+        FROM projects p
+        LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = ?
+        WHERE p.id = ? AND (p.created_by = ? OR pm.role IN ('owner', 'manager'))
+    `;
+    
+    db.query(permissionQuery, [req.user.id, projectId, req.user.id], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(403).json({ error: 'Access denied or project not found' });
+        }
+        
+        const updateQuery = `
+            UPDATE projects 
+            SET name = COALESCE(?, name),
+                description = COALESCE(?, description),
+                status = COALESCE(?, status),
+                priority = COALESCE(?, priority),
+                start_date = COALESCE(?, start_date),
+                due_date = COALESCE(?, due_date),
+                color = COALESCE(?, color),
+                budget = COALESCE(?, budget),
+                progress_percentage = COALESCE(?, progress_percentage),
+                completion_date = CASE WHEN ? = 'completed' AND completion_date IS NULL THEN CURRENT_TIMESTAMP ELSE completion_date END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `;
+        
+        db.query(updateQuery, [
+            name || null,
+            description || null,
+            status || null,
+            priority || null,
+            start_date || null,
+            due_date || null,
+            color || null,
+            budget || null,
+            progress_percentage || null,
+            status || null,
+            projectId
+        ], (err) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ error: 'Failed to update project' });
+            }
+            
+            res.json({ message: 'Project updated successfully' });
+        });
+    });
+});
+
+// Delete project
+app.delete('/api/projects/:id', authenticateToken, (req, res) => {
+    const projectId = req.params.id;
+    
+    // Check if user is project owner
+    const permissionQuery = `
+        SELECT id FROM projects 
+        WHERE id = ? AND created_by = ?
+    `;
+    
+    db.query(permissionQuery, [projectId, req.user.id], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (results.length === 0) {
+            return res.status(403).json({ error: 'Access denied or project not found' });
+        }
+        
+        // Archive project instead of deleting
+        const archiveQuery = 'UPDATE projects SET is_archived = TRUE WHERE id = ?';
+        
+        db.query(archiveQuery, [projectId], (err) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ error: 'Failed to archive project' });
+            }
+            
+            res.json({ message: 'Project archived successfully' });
+        });
+    });
+});
+
+// Get project members
+app.get('/api/projects/:id/members', authenticateToken, (req, res) => {
+    const projectId = req.params.id;
+    
+    const query = `
+        SELECT 
+            pm.id,
+            pm.role,
+            pm.joined_at,
+            u.id as user_id,
+            u.full_name,
+            u.email,
+            u.role as user_role
+        FROM project_members pm
+        JOIN users u ON pm.user_id = u.id
+        JOIN projects p ON pm.project_id = p.id
+        WHERE pm.project_id = ? AND (p.created_by = ? OR pm.user_id = ?)
+        ORDER BY pm.role, u.full_name
+    `;
+    
+    db.query(query, [projectId, req.user.id, req.user.id], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to fetch project members' });
+        }
+        
+        res.json(results);
     });
 });
 

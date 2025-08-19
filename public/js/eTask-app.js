@@ -10,9 +10,10 @@ class TaskFlowApp {
         } catch (_) {
             this.API_BASE_URL = 'http://localhost:3002/api';
         }
-        this.currentView = 'list';
-        this.tasks = [];
-        this.users = [];
+    this.currentView = 'list';
+    this.tasks = [];
+    this.users = [];
+    this.projects = [];
         this.filters = {
             status: 'all',
             assignee: 'all',
@@ -434,13 +435,55 @@ class TaskFlowApp {
         if (taskForm) {
             taskForm.addEventListener('submit', (e) => this.handleTaskSubmit(e));
         }
+        // Project form
+        const projectForm = document.getElementById('projectForm');
+        if (projectForm) {
+            projectForm.addEventListener('submit', (e) => this.handleProjectSubmit(e));
+        }
 
-        // Modal close buttons
+        // Modal close buttons and data attribute handlers
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('close-modal') || 
                 e.target.dataset.dismiss === 'modal' ||
                 e.target.classList.contains('btn-cancel')) {
                 this.closeModal();
+            }
+            
+            // Handle data-action attributes
+            const actionElement = e.target.closest('[data-action]');
+            if (actionElement) {
+                const action = actionElement.getAttribute('data-action');
+                switch (action) {
+                    case 'new-task':
+                        this.openNewTaskModal();
+                        break;
+                    case 'assign-task':
+                        this.openNewTaskModal();
+                        break;
+                    case 'new-project':
+                        this.openNewProjectModal();
+                        break;
+                    case 'refresh-tasks':
+                        this.refreshTasks();
+                        break;
+                    case 'mark-all-read':
+                        this.markAllRead();
+                        break;
+                }
+            }
+            
+            // Handle data-view attributes (filter tabs)
+            const viewElement = e.target.closest('[data-view]');
+            if (viewElement) {
+                const view = viewElement.getAttribute('data-view');
+                this.switchView(view);
+            }
+            
+            // Handle data-filter attributes
+            const filterElement = e.target.closest('[data-filter]');
+            if (filterElement) {
+                const filter = filterElement.getAttribute('data-filter');
+                this.filterBy(filter);
             }
             
             // Close sidebar when clicking outside
@@ -2004,6 +2047,15 @@ class TaskFlowApp {
             setTimeout(() => this.filterAndDisplayTasks(), 100);
         }
 
+        // If switching to projects view, load & render projects
+        if (viewName === 'projects') {
+            if (!this.projects || this.projects.length === 0) {
+                this.loadProjects().finally(() => this.renderProjectsList());
+            } else {
+                this.renderProjectsList();
+            }
+        }
+
         // Update page title
         const titles = {
             'tasks': 'My Tasks',
@@ -2040,7 +2092,9 @@ class TaskFlowApp {
             tab.classList.remove('active');
         });
         
-        const activeTab = document.querySelector(`[onclick="switchView('${viewType}')"]`);
+        // Try both data-view and onclick selectors for backward compatibility
+        const activeTab = document.querySelector(`[data-view="${viewType}"]`) || 
+                         document.querySelector(`[onclick="switchView('${viewType}')"]`);
         if (activeTab) {
             activeTab.classList.add('active');
         }
@@ -2062,6 +2116,95 @@ class TaskFlowApp {
             this.renderDeadlineView();
         } else if (viewType === 'calendar') {
             this.renderCalendar();
+        } else if (viewType === 'gantt') {
+            this.renderGanttView();
+        }
+    }
+
+    // ===== Projects: load, render, create =====
+    async loadProjects() {
+        try {
+            const data = await this.apiCall('/projects');
+            this.projects = Array.isArray(data) ? data : [];
+            const counter = document.getElementById('projectCounter');
+            if (counter) counter.textContent = this.projects.length || 0;
+            return this.projects;
+        } catch (err) {
+            console.error('Failed to load projects:', err);
+            this.projects = [];
+            const grid = document.getElementById('projectsGrid');
+            if (grid) grid.innerHTML = '<div class="empty-state">Unable to load projects.</div>';
+        }
+    }
+
+    renderProjectsList() {
+        const grid = document.getElementById('projectsGrid');
+        if (!grid) return;
+        const items = this.projects || [];
+        if (items.length === 0) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <div>No projects yet</div>
+                    <div class="empty-actions">
+                        <button class="action-btn new-task-btn" data-action="new-project"><i class="fas fa-plus"></i> Create your first project</button>
+                    </div>
+                </div>`;
+            return;
+        }
+        const fmtDate = (d) => d ? new Date(d).toLocaleDateString() : '';
+        grid.innerHTML = items.map(p => `
+            <div class="project-card" data-project-id="${p.id}">
+                <div class="project-card-header">
+                    <span class="project-color" style="background:${p.color || '#3B82F6'}"></span>
+                    <h4 class="project-name">${this.escapeHtml(p.name)}</h4>
+                    <span class="status badge">${p.status || 'planning'}</span>
+                </div>
+                <div class="project-card-body">
+                    <p class="project-desc">${this.escapeHtml(p.description || '')}</p>
+                    <div class="project-meta">
+                        <span title="Tasks"><i class="fas fa-tasks"></i> ${p.task_count || 0}</span>
+                        <span title="Members"><i class="fas fa-users"></i> ${p.member_count || 1}</span>
+                        <span title="Due">${fmtDate(p.due_date)}</span>
+                    </div>
+                    <div class="progress"><div class="bar" style="width:${Math.max(0, Math.min(100, Math.round(p.avg_progress || p.progress_percentage || 0)))}%"></div></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    openNewProjectModal() {
+        const form = document.getElementById('projectForm');
+        if (form) form.reset();
+        const color = document.getElementById('projectColor');
+        if (color) color.value = '#3B82F6';
+        this.showModal('projectModal');
+    }
+
+    async handleProjectSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const name = form.querySelector('#projectName')?.value?.trim();
+        if (!name) {
+            this.showNotification('Project name is required', 'warning');
+            return;
+        }
+        const payload = {
+            name,
+            description: form.querySelector('#projectDescription')?.value || null,
+            priority: form.querySelector('#projectPriority')?.value || 'medium',
+            start_date: form.querySelector('#projectStart')?.value || null,
+            due_date: form.querySelector('#projectDue')?.value || null,
+            color: form.querySelector('#projectColor')?.value || '#3B82F6',
+            budget: form.querySelector('#projectBudget')?.value || null,
+        };
+        try {
+            await this.apiCall('/projects', { method: 'POST', body: JSON.stringify(payload) });
+            this.hideModal('projectModal');
+            this.showNotification('Project created successfully', 'success');
+            await this.loadProjects();
+            this.renderProjectsList();
+        } catch (err) {
+            this.showNotification('Failed to create project', 'error');
         }
     }
     // Deadline view: Group tasks by due date buckets
