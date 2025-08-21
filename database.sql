@@ -3,7 +3,9 @@ USE task_management_db;
 
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS task_history;
+DROP TABLE IF EXISTS project_members;
 DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS projects;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
@@ -25,12 +27,39 @@ CREATE TABLE users (
     INDEX idx_status (status)
 );
 
+CREATE TABLE projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    created_by INT NOT NULL,
+    status ENUM('planning', 'active', 'on_hold', 'completed', 'cancelled') DEFAULT 'planning',
+    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+    start_date DATE,
+    due_date DATE,
+    completion_date DATE NULL,
+    budget DECIMAL(10,2) NULL,
+    progress_percentage INT DEFAULT 0,
+    color VARCHAR(7) DEFAULT '#3B82F6',
+    is_archived BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    
+    INDEX idx_created_by (created_by),
+    INDEX idx_status (status),
+    INDEX idx_priority (priority),
+    INDEX idx_is_archived (is_archived),
+    INDEX idx_created_at (created_at)
+);
+
 CREATE TABLE tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
     description TEXT,
     assigned_to INT,
     assigned_by INT,
+    project_id INT NULL,
     status ENUM('pending', 'in_progress', 'completed', 'cancelled', 'on_hold') DEFAULT 'pending',
     priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
     due_date DATE,
@@ -44,9 +73,11 @@ CREATE TABLE tasks (
     
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
     FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL ON UPDATE CASCADE,
     
     INDEX idx_assigned_to (assigned_to),
     INDEX idx_assigned_by (assigned_by),
+    INDEX idx_project_id (project_id),
     INDEX idx_status (status),
     INDEX idx_priority (priority),
     INDEX idx_due_date (due_date),
@@ -104,6 +135,21 @@ CREATE TABLE notifications (
     INDEX idx_created_at (created_at)
 );
 
+CREATE TABLE project_members (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    user_id INT NOT NULL,
+    role ENUM('owner', 'manager', 'member', 'viewer') DEFAULT 'member',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    
+    UNIQUE KEY unique_project_member (project_id, user_id),
+    INDEX idx_project_id (project_id),
+    INDEX idx_user_id (user_id)
+);
+
 INSERT INTO users (full_name, email, username, password, role) VALUES
 ('System Administrator', 'admin@taskmanagement.com', 'admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin'),
 ('Project Manager', 'manager@taskmanagement.com', 'manager', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'manager'),
@@ -117,6 +163,21 @@ INSERT INTO tasks (title, description, assigned_to, assigned_by, priority, due_d
 ('Implement User Authentication', 'Develop secure login and registration system', 3, 2, 'high', '2025-08-25', 16.0, CURRENT_DATE),
 ('Create Task Management UI', 'Design and implement user interface for task management', 5, 2, 'medium', '2025-08-30', 20.0, CURRENT_DATE),
 ('Write Documentation', 'Create comprehensive project documentation', 4, 2, 'low', '2025-09-05', 6.0, CURRENT_DATE);
+
+INSERT INTO projects (name, description, created_by, status, priority, start_date, due_date, color) VALUES
+('Employee Task Management System', 'Complete web-based task management solution for teams', 2, 'active', 'high', '2025-08-01', '2025-09-30', '#3B82F6'),
+('Website Redesign', 'Modernize company website with responsive design', 2, 'planning', 'medium', '2025-09-01', '2025-11-15', '#10B981'),
+('Mobile App Development', 'Native mobile application for task management', 2, 'planning', 'high', '2025-10-01', '2026-01-31', '#F59E0B');
+
+INSERT INTO project_members (project_id, user_id, role) VALUES
+(1, 2, 'owner'),
+(1, 3, 'member'),
+(1, 4, 'member'),
+(1, 5, 'member'),
+(2, 2, 'owner'),
+(2, 4, 'member'),
+(3, 2, 'owner'),
+(3, 3, 'member');
 
 INSERT INTO task_history (task_id, action, new_status, new_assigned_to, description) VALUES
 (1, 'created', 'pending', 3, 'Task "Setup Development Environment" created'),

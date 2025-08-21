@@ -19,19 +19,27 @@ async function setupDatabase() {
         // Create tables
         console.log('Creating tables...');
         
-        // Users table
+        // Users table (align with database.sql)
         await db.promise().execute(`
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                full_name VARCHAR(50) NOT NULL,
-                email VARCHAR(100),
+                full_name VARCHAR(100) NOT NULL,
+                email VARCHAR(100) NOT NULL UNIQUE,
                 username VARCHAR(50) NOT NULL UNIQUE,
                 password VARCHAR(255) NOT NULL,
-                role ENUM('admin', 'employee') NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                role ENUM('admin', 'manager', 'employee') NOT NULL DEFAULT 'employee',
+                status ENUM('active', 'inactive', 'suspended') NOT NULL DEFAULT 'active',
+                last_login TIMESTAMP NULL,
+                login_attempts INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_email (email),
+                INDEX idx_username (username),
+                INDEX idx_role (role),
+                INDEX idx_status (status)
             )
         `);
-        console.log('✓ Users table created');
+        console.log('✓ Users table ready');
 
         // Add email column if it doesn't exist (for existing databases)
         try {
@@ -46,34 +54,93 @@ async function setupDatabase() {
             }
         }
 
-        // Tasks table
+        // Projects table (needed for tasks FK)
+        await db.promise().execute(`
+            CREATE TABLE IF NOT EXISTS projects (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                created_by INT NOT NULL,
+                status ENUM('planning', 'active', 'on_hold', 'completed', 'cancelled') DEFAULT 'planning',
+                priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+                start_date DATE,
+                due_date DATE,
+                completion_date DATE NULL,
+                budget DECIMAL(10,2) NULL,
+                progress_percentage INT DEFAULT 0,
+                color VARCHAR(7) DEFAULT '#3B82F6',
+                is_archived BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                INDEX idx_created_by (created_by),
+                INDEX idx_status (status),
+                INDEX idx_priority (priority),
+                INDEX idx_is_archived (is_archived),
+                INDEX idx_created_at (created_at)
+            )
+        `);
+        console.log('✓ Projects table ready');
+
+        // Tasks table (align with database.sql)
         await db.promise().execute(`
             CREATE TABLE IF NOT EXISTS tasks (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                title VARCHAR(100) NOT NULL,
+                title VARCHAR(200) NOT NULL,
                 description TEXT,
                 assigned_to INT,
-                status ENUM('pending', 'in_progress', 'completed') DEFAULT 'pending',
+                assigned_by INT,
+                project_id INT NULL,
+                status ENUM('pending', 'in_progress', 'completed', 'cancelled', 'on_hold') DEFAULT 'pending',
+                priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
                 due_date DATE,
+                start_date DATE,
+                completion_date TIMESTAMP NULL,
+                estimated_hours DECIMAL(5,2),
+                actual_hours DECIMAL(5,2),
+                progress_percentage INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
+                FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL ON UPDATE CASCADE,
+                INDEX idx_assigned_to (assigned_to),
+                INDEX idx_assigned_by (assigned_by),
+                INDEX idx_project_id (project_id),
+                INDEX idx_status (status),
+                INDEX idx_priority (priority),
+                INDEX idx_due_date (due_date),
+                CHECK (progress_percentage >= 0 AND progress_percentage <= 100)
             )
         `);
-        console.log('✓ Tasks table created');
+        console.log('✓ Tasks table ready');
 
-        // Notifications table
+        // Notifications table (align with database.sql)
         await db.promise().execute(`
             CREATE TABLE IF NOT EXISTS notifications (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                recipient_id INT NOT NULL,
+                sender_id INT,
+                task_id INT,
+                type ENUM('task_assigned', 'task_completed', 'task_overdue', 'deadline_reminder', 'status_update', 'system') NOT NULL,
+                title VARCHAR(200) NOT NULL,
                 message TEXT NOT NULL,
-                recipient INT NOT NULL,
-                type VARCHAR(50) NOT NULL,
-                date DATE NOT NULL,
                 is_read BOOLEAN DEFAULT FALSE,
-                FOREIGN KEY (recipient) REFERENCES users(id) ON DELETE CASCADE
+                priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
+                read_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
+                FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                INDEX idx_recipient_id (recipient_id),
+                INDEX idx_sender_id (sender_id),
+                INDEX idx_task_id (task_id),
+                INDEX idx_type (type),
+                INDEX idx_is_read (is_read),
+                INDEX idx_created_at (created_at)
             )
         `);
-        console.log('✓ Notifications table created');
+        console.log('✓ Notifications table ready');
 
         // Check if admin user exists
         const [adminUsers] = await db.promise().execute(
@@ -110,23 +177,23 @@ async function setupDatabase() {
             console.log('✓ Employee user already exists');
         }
 
-        // Create sample tasks
-        const [tasks] = await db.promise().execute('SELECT COUNT(*) as count FROM tasks');
+    // Create sample tasks
+    const [tasks] = await db.promise().execute('SELECT COUNT(*) as count FROM tasks');
         
         if (tasks[0].count === 0) {
             await db.promise().execute(
-                'INSERT INTO tasks (title, description, assigned_to, status, due_date) VALUES (?, ?, ?, ?, ?)',
-                ['Complete Project Setup', 'Set up the development environment and install dependencies', 2, 'pending', '2024-01-15']
+                'INSERT INTO tasks (title, description, assigned_to, assigned_by, priority, due_date, start_date) VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE)',
+                ['Complete Project Setup', 'Set up the development environment and install dependencies', 2, 1, 'high', '2025-09-15']
             );
             
             await db.promise().execute(
-                'INSERT INTO tasks (title, description, assigned_to, status, due_date) VALUES (?, ?, ?, ?, ?)',
-                ['Review Code', 'Review the latest code changes and provide feedback', 2, 'in_progress', '2024-01-20']
+                'INSERT INTO tasks (title, description, assigned_to, assigned_by, status, priority, due_date, start_date) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE)',
+                ['Review Code', 'Review the latest code changes and provide feedback', 2, 1, 'in_progress', 'medium', '2025-09-20']
             );
             
             await db.promise().execute(
-                'INSERT INTO tasks (title, description, assigned_to, status, due_date) VALUES (?, ?, ?, ?, ?)',
-                ['Update Documentation', 'Update the project documentation with latest changes', 2, 'completed', '2024-01-10']
+                'INSERT INTO tasks (title, description, assigned_to, assigned_by, status, priority, due_date, start_date, completion_date) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, CURRENT_TIMESTAMP)',
+                ['Update Documentation', 'Update the project documentation with latest changes', 2, 1, 'completed', 'low', '2025-09-10']
             );
             
             console.log('✓ Sample tasks created');

@@ -10,9 +10,10 @@ class TaskFlowApp {
         } catch (_) {
             this.API_BASE_URL = 'http://localhost:3002/api';
         }
-        this.currentView = 'list';
-        this.tasks = [];
-        this.users = [];
+    this.currentView = 'list';
+    this.tasks = [];
+    this.users = [];
+    this.projects = [];
         this.filters = {
             status: 'all',
             assignee: 'all',
@@ -172,7 +173,163 @@ class TaskFlowApp {
         }
     }
 
-    // Basic HTML escaper for safe rendering
+    // Documents interface setup - comprehensive wiring for all document functionality
+    setupDocumentsInterface() {
+        // Search functionality
+        const docSearch = document.getElementById('docSearch');
+        if (docSearch && !docSearch._bound) {
+            docSearch._bound = true;
+            docSearch.addEventListener('input', () => this.loadDocuments());
+        }
+
+        // New document button
+        const docNewButton = document.getElementById('docNewButton');
+        if (docNewButton && !docNewButton._bound) {
+            docNewButton._bound = true;
+            docNewButton.addEventListener('click', async () => {
+                const title = prompt('Document title');
+                if (!title) return;
+                try {
+                    await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type: 'document' }) });
+                    this.loadDocuments();
+                    this.showNotification('Document created successfully!', 'success');
+                } catch (err) {
+                    this.showNotification(err.message || 'Failed to create document', 'error');
+                }
+            });
+        }
+
+        // Document template buttons
+        document.querySelectorAll('.doc-template').forEach(btn => {
+            if (btn._bound) return;
+            btn._bound = true;
+            btn.addEventListener('click', async (e) => {
+                const type = e.currentTarget.dataset.type;
+                if (!type) return;
+                const title = prompt(`New ${type} title`);
+                if (!title) return;
+                try {
+                    await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type }) });
+                    this.loadDocuments();
+                    this.showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} created successfully!`, 'success');
+                } catch (err) {
+                    this.showNotification(err.message || `Failed to create ${type}`, 'error');
+                }
+            });
+        });
+
+        // File upload from computer
+        const docUploadInput = document.getElementById('docUploadInput');
+        if (docUploadInput && !docUploadInput._bound) {
+            docUploadInput._bound = true;
+            docUploadInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Validate file size (10MB limit)
+                const maxSize = 10 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    this.showNotification('File size must be less than 10MB', 'error');
+                    e.target.value = '';
+                    return;
+                }
+
+                try {
+                    const form = new FormData();
+                    form.append('file', file);
+                    form.append('title', file.name);
+                    
+                    const res = await fetch(`${this.API_BASE_URL}/documents/upload`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${this.authToken}` },
+                        body: form
+                    });
+                    
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({ error: 'Upload failed' }));
+                        throw new Error(errorData.error || 'Upload failed');
+                    }
+
+                    this.showNotification('Document uploaded successfully!', 'success');
+                    this.loadDocuments();
+                } catch (err) {
+                    this.showNotification(err.message || 'Upload failed', 'error');
+                }
+                e.target.value = '';
+            });
+        }
+
+        // View toggle buttons (List, Grid, Tile)
+        this.setupDocumentViewToggles();
+
+        // Filter buttons (Active, Shared, Published)
+        this.setupDocumentFilters();
+    }
+
+    setupDocumentViewToggles() {
+        const viewButtons = ['docViewList', 'docViewGrid', 'docViewTile'];
+        viewButtons.forEach(buttonId => {
+            const btn = document.getElementById(buttonId);
+            if (btn && !btn._bound) {
+                btn._bound = true;
+                btn.addEventListener('click', () => {
+                    // Update active state
+                    viewButtons.forEach(id => {
+                        document.getElementById(id)?.classList.remove('active');
+                    });
+                    btn.classList.add('active');
+                    
+                    // Apply view style to documents list
+                    const docsList = document.getElementById('documentsList');
+                    if (docsList) {
+                        docsList.className = 'documents-list';
+                        if (buttonId === 'docViewGrid') {
+                            docsList.classList.add('grid-view');
+                        } else if (buttonId === 'docViewTile') {
+                            docsList.classList.add('tile-view');
+                        }
+                        // List view is default, no additional class needed
+                    }
+                });
+            }
+        });
+    }
+
+    setupDocumentFilters() {
+        const filterButtons = ['docFilterActive', 'docFilterShared', 'docFilterPublished'];
+        filterButtons.forEach(buttonId => {
+            const btn = document.getElementById(buttonId);
+            if (btn && !btn._bound) {
+                btn._bound = true;
+                btn.addEventListener('click', async () => {
+                    // Update active state
+                    filterButtons.forEach(id => {
+                        document.getElementById(id)?.classList.remove('active');
+                    });
+                    btn.classList.add('active');
+                    
+                    // Apply filter and reload documents
+                    let filter = '';
+                    if (buttonId === 'docFilterShared') filter = 'shared';
+                    else if (buttonId === 'docFilterPublished') filter = 'published';
+                    
+                    try {
+                        const q = document.getElementById('docSearch')?.value || '';
+                        const qs = new URLSearchParams();
+                        if (q) qs.append('q', q);
+                        if (filter) qs.append('filter', filter);
+                        
+                        const queryString = qs.toString() ? `?${qs.toString()}` : '';
+                        const docs = await this.apiCall(`/documents${queryString}`);
+                        this.documents = Array.isArray(docs) ? docs : [];
+                        this.renderDocumentsList();
+                    } catch (err) {
+                        this.showNotification('Failed to filter documents', 'error');
+                    }
+                });
+            }
+        });
+    }
     escapeHtml(str) {
         if (str == null) return '';
         return String(str)
@@ -278,13 +435,70 @@ class TaskFlowApp {
         if (taskForm) {
             taskForm.addEventListener('submit', (e) => this.handleTaskSubmit(e));
         }
+        // Project form
+        const projectForm = document.getElementById('projectForm');
+        if (projectForm) {
+            projectForm.addEventListener('submit', (e) => this.handleProjectSubmit(e));
+        }
 
-        // Modal close buttons
+        // Modal close buttons and data attribute handlers
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('close-modal') || 
                 e.target.dataset.dismiss === 'modal' ||
                 e.target.classList.contains('btn-cancel')) {
                 this.closeModal();
+            }
+            
+            // Handle data-action attributes
+            const actionElement = e.target.closest('[data-action]');
+            if (actionElement) {
+                const action = actionElement.getAttribute('data-action');
+                switch (action) {
+                    case 'new-task':
+                        this.openNewTaskModal();
+                        break;
+                    case 'assign-task':
+                        this.openNewTaskModal();
+                        break;
+                    case 'new-project':
+                        this.openNewProjectModal();
+                        break;
+                    case 'refresh-tasks':
+                        this.refreshTasks();
+                        break;
+                    case 'mark-all-read':
+                        this.markAllRead();
+                        break;
+                }
+            }
+            
+            // Handle data-view attributes (main navigation tabs)
+            const viewElement = e.target.closest('[data-view]');
+            if (viewElement) {
+                const view = viewElement.getAttribute('data-view');
+                // Main navigation views should use showMainView
+                const mainViews = ['tasks', 'projects', 'scrum', 'assigned', 'efficiency', 'supervising', 'messenger', 'documents', 'employees'];
+                if (mainViews.includes(view)) {
+                    this.showMainView(view);
+                } else {
+                    this.switchView(view);
+                }
+            }
+            
+            // Handle data-filter attributes
+            const filterElement = e.target.closest('[data-filter]');
+            if (filterElement) {
+                const filter = filterElement.getAttribute('data-filter');
+                this.filterBy(filter);
+            }
+            
+            // Handle project card clicks
+            const projectCard = e.target.closest('.project-card');
+            if (projectCard) {
+                const projectId = projectCard.getAttribute('data-project-id');
+                if (projectId) {
+                    this.showProjectDetails(projectId);
+                }
             }
             
             // Close sidebar when clicking outside
@@ -412,54 +626,8 @@ class TaskFlowApp {
             });
         }
 
-                // Documents UI wiring
-                const docSearch = document.getElementById('docSearch');
-                if (docSearch) {
-                    docSearch.addEventListener('input', () => this.loadDocuments());
-                }
-                const docNewButton = document.getElementById('docNewButton');
-                if (docNewButton) {
-                    docNewButton.addEventListener('click', async () => {
-                        const title = prompt('Document title');
-                        if (!title) return;
-                        await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type: 'document' }) });
-                        this.loadDocuments();
-                    });
-                }
-                document.querySelectorAll('.doc-template').forEach(btn => {
-                    btn.addEventListener('click', async (e) => {
-                        const type = e.currentTarget.dataset.type;
-                        if (!type) return;
-                        const title = prompt(`New ${type} title`);
-                        if (!title) return;
-                        await this.apiCall('/documents', { method: 'POST', body: JSON.stringify({ title, type }) });
-                        this.loadDocuments();
-                    });
-                });
-                const docUploadInput = document.getElementById('docUploadInput');
-                if (docUploadInput) {
-                    docUploadInput.addEventListener('change', async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        const form = new FormData();
-                        form.append('file', file);
-                        const res = await fetch(`${this.API_BASE_URL}/documents/upload`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${this.authToken}` },
-                            body: form
-                        });
-                        if (!res.ok) {
-                            const msg = await res.text();
-                            this.showNotification(`Upload failed: ${msg}`, 'error');
-                        } else {
-                            this.showNotification('Document uploaded', 'success');
-                            this.loadDocuments();
-                        }
-                        e.target.value = '';
-                    });
-                }
-
-                // Enhanced invite functionality
+        // Documents UI wiring
+        this.setupDocumentsInterface();                // Enhanced invite functionality
         const inviteBtn = document.querySelector('.invite-btn');
         if (inviteBtn) {
             inviteBtn.addEventListener('click', () => this.openInviteModal());
@@ -661,6 +829,7 @@ class TaskFlowApp {
         const dueEl = document.getElementById('taskDueDate');
         const statusEl = document.getElementById('taskStatus');
         const priorityEl = document.getElementById('taskPriority');
+        const projectEl = document.getElementById('taskProject');
         const saveBtn = e.submitter || document.querySelector('#taskForm .btn-save');
 
         const title = (titleEl?.value || '').trim();
@@ -669,6 +838,7 @@ class TaskFlowApp {
         const due_date = dueEl?.value || null;
         const status = statusEl?.value || 'pending';
         const priority = priorityEl?.value || 'medium';
+        const project_id = projectEl?.value || null;
 
         // Client-side validation and sensible defaults
         if (!title) {
@@ -685,7 +855,7 @@ class TaskFlowApp {
             assigned_to = this.currentUser.id;
         }
 
-        const taskData = { title, description, assigned_to, due_date, status, priority };
+        const taskData = { title, description, assigned_to, due_date, status, priority, project_id };
 
         const taskId = document.getElementById('taskForm').dataset.taskId;
 
@@ -1366,6 +1536,32 @@ class TaskFlowApp {
         console.log('User dropdown populated with', this.users.length, 'users');
     }
 
+    populateProjectDropdown() {
+        const projectSelect = document.getElementById('taskProject');
+        if (!projectSelect) {
+            console.warn('taskProject select element not found');
+            return;
+        }
+        
+        console.log('Populating project dropdown with projects:', this.projects);
+        
+        projectSelect.innerHTML = '<option value="">Select project...</option>';
+        
+        if (!this.projects || this.projects.length === 0) {
+            console.warn('No projects available to populate dropdown');
+            return;
+        }
+        
+        this.projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = project.name;
+            projectSelect.appendChild(option);
+        });
+        
+        console.log('Project dropdown populated with', this.projects.length, 'projects');
+    }
+
     displayTeamAvatars() {
         const teamAvatars = document.getElementById('teamAvatars');
         if (!teamAvatars) return;
@@ -1392,11 +1588,16 @@ class TaskFlowApp {
         if (!container) return;
 
         const term = (document.getElementById('employeeSearch')?.value || '').toLowerCase().trim();
-        const users = (this.users || []).filter(u => {
+        const sortBy = document.getElementById('employeeSort')?.value || 'name-asc';
+        
+        let users = (this.users || []).filter(u => {
             if (!term) return true;
             const hay = `${u.full_name || ''} ${u.username || ''} ${u.email || ''} ${u.role || ''}`.toLowerCase();
             return hay.includes(term);
         });
+
+        // Sort users based on selected option
+        users = this.sortEmployees(users, sortBy);
 
         if (!users.length) {
             container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1; text-align:center; padding:24px;">No employees found</div>';
@@ -1425,6 +1626,48 @@ class TaskFlowApp {
             search._bound = true;
             search.addEventListener('input', () => this.renderEmployeesList());
         }
+
+        // Bind sort dropdown once
+        const sortSelect = document.getElementById('employeeSort');
+        if (sortSelect && !sortSelect._bound) {
+            sortSelect._bound = true;
+            sortSelect.addEventListener('change', () => this.renderEmployeesList());
+        }
+    }
+
+    sortEmployees(users, sortBy) {
+        const [field, direction] = sortBy.split('-');
+        const isAsc = direction === 'asc';
+        
+        return users.sort((a, b) => {
+            let valueA, valueB;
+            
+            switch (field) {
+                case 'name':
+                    valueA = (a.full_name || a.username || '').toLowerCase();
+                    valueB = (b.full_name || b.username || '').toLowerCase();
+                    break;
+                case 'role':
+                    valueA = (a.role || '').toLowerCase();
+                    valueB = (b.role || '').toLowerCase();
+                    break;
+                case 'email':
+                    valueA = (a.email || '').toLowerCase();
+                    valueB = (b.email || '').toLowerCase();
+                    break;
+                default:
+                    valueA = (a.full_name || a.username || '').toLowerCase();
+                    valueB = (b.full_name || b.username || '').toLowerCase();
+            }
+            
+            if (valueA < valueB) {
+                return isAsc ? -1 : 1;
+            }
+            if (valueA > valueB) {
+                return isAsc ? 1 : -1;
+            }
+            return 0;
+        });
     }
 
     populateTeamSidebar() {
@@ -1720,9 +1963,14 @@ class TaskFlowApp {
             document.getElementById('taskTitle').value = task.title || '';
             document.getElementById('taskDescription').value = task.description || '';
             document.getElementById('taskAssignedTo').value = task.assigned_to || '';
+            document.getElementById('taskProject').value = task.project_id || '';
             document.getElementById('taskDueDate').value = task.due_date ? task.due_date.split('T')[0] : '';
             document.getElementById('taskStatus').value = task.status || 'pending';
             document.getElementById('taskPriority').value = task.priority || 'medium';
+            
+            // Populate dropdowns
+            this.populateUserDropdowns();
+            this.populateProjectDropdown();
             
             // Set modal title and task ID
             document.getElementById('taskModalTitle').textContent = 'Edit Task';
@@ -1894,6 +2142,15 @@ class TaskFlowApp {
             setTimeout(() => this.filterAndDisplayTasks(), 100);
         }
 
+        // If switching to projects view, load & render projects
+        if (viewName === 'projects') {
+            if (!this.projects || this.projects.length === 0) {
+                this.loadProjects().finally(() => this.renderProjectsList());
+            } else {
+                this.renderProjectsList();
+            }
+        }
+
         // Update page title
         const titles = {
             'tasks': 'My Tasks',
@@ -1910,6 +2167,8 @@ class TaskFlowApp {
         document.title = `eTask - ${titles[viewName] || 'Task Management'}`;
         if (viewName === 'documents') {
             this.loadDocuments?.();
+            // Setup document interface if not already done
+            setTimeout(() => this.setupDocumentsInterface?.(), 100);
         } else if (viewName === 'employees') {
             // Ensure users are available and render list
             if (!this.users || this.users.length === 0) {
@@ -1928,7 +2187,9 @@ class TaskFlowApp {
             tab.classList.remove('active');
         });
         
-        const activeTab = document.querySelector(`[onclick="switchView('${viewType}')"]`);
+        // Try both data-view and onclick selectors for backward compatibility
+        const activeTab = document.querySelector(`[data-view="${viewType}"]`) || 
+                         document.querySelector(`[onclick="switchView('${viewType}')"]`);
         if (activeTab) {
             activeTab.classList.add('active');
         }
@@ -1950,8 +2211,391 @@ class TaskFlowApp {
             this.renderDeadlineView();
         } else if (viewType === 'calendar') {
             this.renderCalendar();
+        } else if (viewType === 'gantt') {
+            this.renderGanttView();
         }
     }
+
+    // ===== Projects: load, render, create =====
+    async loadProjects() {
+        try {
+            const data = await this.apiCall('/projects');
+            this.projects = Array.isArray(data) ? data : [];
+            const counter = document.getElementById('projectCounter');
+            if (counter) counter.textContent = this.projects.length || 0;
+            return this.projects;
+        } catch (err) {
+            console.error('Failed to load projects:', err);
+            this.projects = [];
+            const grid = document.getElementById('projectsGrid');
+            if (grid) grid.innerHTML = '<div class="empty-state">Unable to load projects.</div>';
+        }
+    }
+
+    renderProjectsList() {
+        const grid = document.getElementById('projectsGrid');
+        if (!grid) return;
+        const items = this.projects || [];
+        if (items.length === 0) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <div>No projects yet</div>
+                    <div class="empty-actions">
+                        <button class="action-btn new-task-btn" data-action="new-project"><i class="fas fa-plus"></i> Create your first project</button>
+                    </div>
+                </div>`;
+            return;
+        }
+        const fmtDate = (d) => d ? new Date(d).toLocaleDateString() : '';
+        grid.innerHTML = items.map(p => `
+            <div class="project-card" data-project-id="${p.id}">
+                <div class="project-card-header">
+                    <span class="project-color" style="background:${p.color || '#3B82F6'}"></span>
+                    <h4 class="project-name">${this.escapeHtml(p.name)}</h4>
+                    <span class="status badge">${p.status || 'planning'}</span>
+                </div>
+                <div class="project-card-body">
+                    <p class="project-desc">${this.escapeHtml(p.description || '')}</p>
+                    <div class="project-meta">
+                        <span title="Tasks"><i class="fas fa-tasks"></i> ${p.task_count || 0}</span>
+                        <span title="Members"><i class="fas fa-users"></i> ${p.member_count || 1}</span>
+                        <span title="Due">${fmtDate(p.due_date)}</span>
+                    </div>
+                    <div class="progress"><div class="bar" style="width:${Math.max(0, Math.min(100, Math.round(p.avg_progress || p.progress_percentage || 0)))}%"></div></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    openNewProjectModal() {
+        const form = document.getElementById('projectForm');
+        if (form) form.reset();
+        const color = document.getElementById('projectColor');
+        if (color) color.value = '#3B82F6';
+        this.showModal('projectModal');
+    }
+
+    openNewTaskModal() {
+        const form = document.getElementById('taskForm');
+        if (form) {
+            form.reset();
+            delete form.dataset.taskId;
+        }
+        
+        // Set modal title
+        const modalTitle = document.getElementById('taskModalTitle');
+        if (modalTitle) modalTitle.textContent = 'Add New Task';
+        
+        // Populate user dropdown
+        this.populateUserDropdowns();
+        
+        // Populate project dropdown
+        this.populateProjectDropdown();
+        
+        this.showModal('taskModal');
+    }
+
+    async handleProjectSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const name = form.querySelector('#projectName')?.value?.trim();
+        if (!name) {
+            this.showNotification('Project name is required', 'warning');
+            return;
+        }
+        const payload = {
+            name,
+            description: form.querySelector('#projectDescription')?.value || null,
+            priority: form.querySelector('#projectPriority')?.value || 'medium',
+            start_date: form.querySelector('#projectStart')?.value || null,
+            due_date: form.querySelector('#projectDue')?.value || null,
+            color: form.querySelector('#projectColor')?.value || '#3B82F6',
+            budget: form.querySelector('#projectBudget')?.value || null,
+        };
+        try {
+            await this.apiCall('/projects', { method: 'POST', body: JSON.stringify(payload) });
+            this.hideModal('projectModal');
+            this.showNotification('Project created successfully', 'success');
+            await this.loadProjects();
+            this.renderProjectsList();
+        } catch (err) {
+            this.showNotification('Failed to create project', 'error');
+        }
+    }
+
+    async showProjectDetails(projectId) {
+        try {
+            // Fetch project details from API
+            const project = await this.apiCall(`/projects/${projectId}`);
+            
+            // Populate the modal with project data
+            document.getElementById('projectDetailName').textContent = project.name || 'Untitled Project';
+            document.getElementById('projectDetailDescription').textContent = project.description || 'No description available';
+            document.getElementById('projectDetailStatus').textContent = project.status || 'planning';
+            document.getElementById('projectDetailStatus').className = `status badge badge-${project.status || 'planning'}`;
+            document.getElementById('projectDetailPriority').textContent = project.priority || 'medium';
+            document.getElementById('projectDetailPriority').className = `priority badge badge-${project.priority || 'medium'}`;
+            
+            // Set project color
+            const colorIndicator = document.getElementById('projectDetailColor');
+            if (colorIndicator) {
+                colorIndicator.style.background = project.color || '#3B82F6';
+            }
+            
+            // Format and display dates
+            const formatDate = (dateStr) => {
+                if (!dateStr) return 'Not set';
+                return new Date(dateStr).toLocaleDateString();
+            };
+            
+            document.getElementById('projectDetailStartDate').textContent = formatDate(project.start_date);
+            document.getElementById('projectDetailDueDate').textContent = formatDate(project.due_date);
+            document.getElementById('projectDetailCreatedBy').textContent = project.created_by_name || 'Unknown';
+            
+            // Display stats (these might come from the project data or need separate API calls)
+            document.getElementById('projectDetailTaskCount').textContent = project.task_count || 0;
+            document.getElementById('projectDetailMemberCount').textContent = project.member_count || 1;
+            
+            // Calculate and display progress
+            const progress = Math.round(project.avg_progress || project.progress_percentage || 0);
+            document.getElementById('projectDetailProgress').textContent = `${progress}%`;
+            document.getElementById('projectDetailProgressBar').style.width = `${progress}%`;
+            
+            // Store project ID for potential actions
+            this.currentProjectId = projectId;
+            
+            // Setup button handlers
+            this.setupProjectDetailButtons(project);
+            
+            // Show the modal
+            this.showModal('projectDetailModal');
+            
+        } catch (err) {
+            console.error('Failed to load project details:', err);
+            this.showNotification('Failed to load project details', 'error');
+        }
+    }
+
+    setupProjectDetailButtons(project) {
+        // Add Member Button
+        const addMemberBtn = document.getElementById('addMemberToProjectBtn');
+        if (addMemberBtn) {
+            // Remove existing listeners
+            addMemberBtn.replaceWith(addMemberBtn.cloneNode(true));
+            const newAddMemberBtn = document.getElementById('addMemberToProjectBtn');
+            
+            // Check if user has permission to add members (owner only)
+            const canAddMembers = project.user_role === 'owner';
+            
+            if (canAddMembers) {
+                newAddMemberBtn.style.display = 'inline-block';
+                newAddMemberBtn.addEventListener('click', () => {
+                    this.closeModal();
+                    this.openAddMemberModal(project.id, project.name);
+                });
+            } else {
+                newAddMemberBtn.style.display = 'none';
+            }
+        }
+
+        // Add Task Button
+        const addTaskBtn = document.getElementById('addTaskToProjectBtn');
+        if (addTaskBtn) {
+            // Remove existing listeners
+            addTaskBtn.replaceWith(addTaskBtn.cloneNode(true));
+            const newAddTaskBtn = document.getElementById('addTaskToProjectBtn');
+            
+            // Check if user has permission to add tasks (owner or member)
+            const canAddTasks = project.user_role === 'owner' || project.user_role === 'member';
+            
+            if (canAddTasks) {
+                newAddTaskBtn.style.display = 'inline-block';
+                newAddTaskBtn.addEventListener('click', () => {
+                    this.closeModal();
+                    this.openNewTaskModalForProject(project.id);
+                });
+            } else {
+                newAddTaskBtn.style.display = 'none';
+            }
+        }
+
+        // Edit Project Button
+        const editBtn = document.getElementById('editProjectBtn');
+        if (editBtn) {
+            // Remove existing listeners
+            editBtn.replaceWith(editBtn.cloneNode(true));
+            const newEditBtn = document.getElementById('editProjectBtn');
+            
+            // Only show edit button to project owners
+            const canEdit = project.user_role === 'owner';
+            if (canEdit) {
+                newEditBtn.style.display = 'inline-block';
+                newEditBtn.addEventListener('click', () => {
+                    this.closeModal();
+                    this.editProject(project.id);
+                });
+            } else {
+                newEditBtn.style.display = 'none';
+            }
+        }
+
+        // View Tasks Button
+        const viewTasksBtn = document.getElementById('viewProjectTasksBtn');
+        if (viewTasksBtn) {
+            // Remove existing listeners  
+            viewTasksBtn.replaceWith(viewTasksBtn.cloneNode(true));
+            const newViewTasksBtn = document.getElementById('viewProjectTasksBtn');
+            newViewTasksBtn.addEventListener('click', () => {
+                this.closeModal();
+                this.showProjectTasks(project.id);
+            });
+        }
+    }
+
+    openNewTaskModalForProject(projectId) {
+        // Open task modal and pre-select the project
+        this.openNewTaskModal();
+        
+        // After modal opens, set the project
+        setTimeout(() => {
+            const projectSelect = document.getElementById('taskProject');
+            if (projectSelect) {
+                projectSelect.value = projectId;
+            }
+        }, 100);
+    }
+
+    openAddMemberModal(projectId, projectName) {
+        // Set the project info
+        this.currentProjectId = projectId;
+        document.getElementById('addMemberModalTitle').textContent = `Add Member to ${projectName}`;
+        
+        // Reset form
+        const form = document.getElementById('addMemberForm');
+        if (form) form.reset();
+        
+        // Populate user dropdown with employees not already in the project
+        this.populateAvailableUsersDropdown(projectId);
+        
+        // Setup form submission
+        this.setupAddMemberFormHandler();
+        
+        // Show modal
+        this.showModal('addMemberModal');
+    }
+
+    async populateAvailableUsersDropdown(projectId) {
+        const userSelect = document.getElementById('memberUser');
+        if (!userSelect) return;
+
+        try {
+            // Get project members to exclude them from the list
+            const projectMembers = await this.apiCall(`/projects/${projectId}/members`);
+            const memberIds = new Set(projectMembers.map(m => m.user_id));
+
+            // Ensure users are loaded
+            if (!this.users || this.users.length === 0) {
+                await this.loadUsers();
+            }
+
+            // Filter out current members and populate dropdown
+            const availableUsers = this.users.filter(user => !memberIds.has(user.id));
+            
+            userSelect.innerHTML = '<option value="">Choose an employee...</option>';
+            
+            availableUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.full_name} (${user.username}) - ${user.role}`;
+                userSelect.appendChild(option);
+            });
+
+            if (availableUsers.length === 0) {
+                userSelect.innerHTML = '<option value="">No available users to add</option>';
+            }
+
+        } catch (error) {
+            console.error('Error loading available users:', error);
+            userSelect.innerHTML = '<option value="">Error loading users</option>';
+        }
+    }
+
+    setupAddMemberFormHandler() {
+        const form = document.getElementById('addMemberForm');
+        if (form && !form._handlerBound) {
+            form._handlerBound = true;
+            form.addEventListener('submit', (e) => this.handleAddMemberSubmit(e));
+        }
+    }
+
+    async handleAddMemberSubmit(e) {
+        e.preventDefault();
+        
+        const userIdEl = document.getElementById('memberUser');
+        const roleEl = document.getElementById('memberRole');
+        const saveBtn = e.target.querySelector('.btn-save');
+
+        const userId = userIdEl?.value;
+        const role = roleEl?.value || 'member';
+
+        if (!userId) {
+            this.showNotification('Please select an employee', 'error');
+            return;
+        }
+
+        if (!this.currentProjectId) {
+            this.showNotification('Project ID not found', 'error');
+            return;
+        }
+
+        // Show loading state
+        const originalText = saveBtn?.textContent || 'Add Member';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Adding...';
+        }
+
+        try {
+            await this.apiCall(`/projects/${this.currentProjectId}/members`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    user_id: parseInt(userId),
+                    role: role
+                })
+            });
+
+            this.closeModal();
+            this.showNotification('Member added successfully!', 'success');
+
+            // Refresh project details if the modal is shown again
+            // and reload projects list to update member count
+            await this.loadProjects();
+            this.renderProjectsList();
+
+        } catch (error) {
+            console.error('Error adding member:', error);
+            this.showNotification(error.message || 'Failed to add member', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
+            }
+        }
+    }
+
+    editProject(projectId) {
+        // TODO: Implement project editing functionality
+        this.showNotification('Edit project feature coming soon!', 'info');
+    }
+
+    showProjectTasks(projectId) {
+        // Filter tasks by project and show tasks view
+        this.filters.project = projectId;
+        this.showMainView('tasks');
+        this.filterAndDisplayTasks();
+        this.showNotification('Showing tasks for this project', 'info');
+    }
+
     // Deadline view: Group tasks by due date buckets
     renderDeadlineView() {
         const container = document.getElementById('deadlineList');
