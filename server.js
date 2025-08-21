@@ -113,6 +113,55 @@ db.connect((err) => {
         if (e) console.warn('Could not ensure task_files table:', e.message);
         else console.log('task_files table ready');
     });
+
+    // Ensure projects table exists (fallback if DB wasn't imported)
+    const createProjects = `
+        CREATE TABLE IF NOT EXISTS projects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(200) NOT NULL,
+            description TEXT,
+            created_by INT NOT NULL,
+            status ENUM('planning', 'active', 'on_hold', 'completed', 'cancelled') DEFAULT 'planning',
+            priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+            start_date DATE,
+            due_date DATE,
+            completion_date DATE NULL,
+            budget DECIMAL(10,2) NULL,
+            progress_percentage INT DEFAULT 0,
+            color VARCHAR(7) DEFAULT '#3B82F6',
+            is_archived BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+            INDEX idx_created_by (created_by),
+            INDEX idx_status (status),
+            INDEX idx_priority (priority),
+            INDEX idx_is_archived (is_archived),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+    db.query(createProjects, (e) => {
+        if (e) console.warn('Could not ensure projects table:', e.message);
+        else console.log('projects table ready');
+    });
+
+    // Ensure project_members table exists
+    const createProjectMembers = `
+        CREATE TABLE IF NOT EXISTS project_members (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            project_id INT NOT NULL,
+            user_id INT NOT NULL,
+            role ENUM('owner', 'manager', 'member', 'viewer') DEFAULT 'member',
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+            UNIQUE KEY unique_project_member (project_id, user_id),
+            INDEX idx_project_id (project_id),
+            INDEX idx_user_id (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+    db.query(createProjectMembers, (e) => {
+        if (e) console.warn('Could not ensure project_members table:', e.message);
+        else console.log('project_members table ready');
+    });
 });
 
 // Ensure uploads directories exist
@@ -1206,27 +1255,41 @@ app.get('/api/projects', authenticateToken, (req, res) => {
     const query = `
         SELECT 
             p.*,
-            u.full_name as created_by_name,
-            pm.role as user_role,
-            COUNT(DISTINCT t.id) as task_count,
-            COUNT(DISTINCT pm2.id) as member_count,
-            AVG(t.progress_percentage) as avg_progress
+            (
+                SELECT u.full_name 
+                FROM users u 
+                WHERE u.id = p.created_by
+            ) AS created_by_name,
+            (
+                SELECT pm.role 
+                FROM project_members pm 
+                WHERE pm.project_id = p.id AND pm.user_id = ?
+                LIMIT 1
+            ) AS user_role,
+            (
+                SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id
+            ) AS task_count,
+            (
+                SELECT COUNT(*) FROM project_members pm2 WHERE pm2.project_id = p.id
+            ) AS member_count,
+            (
+                SELECT AVG(t2.progress_percentage) FROM tasks t2 WHERE t2.project_id = p.id
+            ) AS avg_progress
         FROM projects p
-        LEFT JOIN users u ON p.created_by = u.id
-        LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = ?
-        LEFT JOIN project_members pm2 ON p.id = pm2.project_id
-        LEFT JOIN tasks t ON p.id = t.project_id
-        WHERE (p.created_by = ? OR pm.user_id = ?) AND p.is_archived = FALSE
-        GROUP BY p.id, p.name, p.description, p.created_by, p.status, p.priority, 
-                 p.start_date, p.due_date, p.completion_date, p.budget, 
-                 p.progress_percentage, p.color, p.is_archived, p.created_at, 
-                 p.updated_at, u.full_name, pm.role
+        WHERE p.is_archived = FALSE
+          AND (
+                p.created_by = ?
+                OR EXISTS (
+                    SELECT 1 FROM project_members pm3 
+                    WHERE pm3.project_id = p.id AND pm3.user_id = ?
+                )
+          )
         ORDER BY p.created_at DESC
     `;
-    
+
     db.query(query, [req.user.id, req.user.id, req.user.id], (err, results) => {
         if (err) {
-            console.error('Database error:', err);
+            console.error('Projects query error:', err.message);
             return res.status(500).json({ error: 'Failed to fetch projects' });
         }
         res.json(results);
@@ -1240,12 +1303,26 @@ app.get('/api/projects/:id', authenticateToken, (req, res) => {
     const query = `
         SELECT 
             p.*,
-            u.full_name as created_by_name,
-            pm.role as user_role
+            (
+                SELECT u.full_name 
+                FROM users u 
+                WHERE u.id = p.created_by
+            ) AS created_by_name,
+            (
+                SELECT pm.role 
+                FROM project_members pm 
+                WHERE pm.project_id = p.id AND pm.user_id = ?
+                LIMIT 1
+            ) AS user_role
         FROM projects p
-        LEFT JOIN users u ON p.created_by = u.id
-        LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = ?
-        WHERE p.id = ? AND (p.created_by = ? OR pm.user_id = ?)
+        WHERE p.id = ? 
+          AND (
+                p.created_by = ? 
+                OR EXISTS (
+                    SELECT 1 FROM project_members pm2 
+                    WHERE pm2.project_id = p.id AND pm2.user_id = ?
+                )
+          )
     `;
     
     db.query(query, [req.user.id, projectId, req.user.id, req.user.id], (err, results) => {
@@ -1454,6 +1531,90 @@ app.get('/api/projects/:id/members', authenticateToken, (req, res) => {
     });
 });
 
+// Add member to project
+app.post('/api/projects/:id/members', authenticateToken, (req, res) => {
+    const projectId = req.params.id;
+    const { user_id, role = 'member' } = req.body;
+    
+    if (!user_id) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    // Check if the requester is the project owner
+    const ownerCheckQuery = `
+        SELECT id FROM projects 
+        WHERE id = ? AND created_by = ?
+    `;
+    
+    db.query(ownerCheckQuery, [projectId, req.user.id], (err, ownerResults) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to verify project ownership' });
+        }
+        
+        if (ownerResults.length === 0) {
+            return res.status(403).json({ error: 'Only project owners can add members' });
+        }
+        
+        // Check if user is already a member
+        const memberCheckQuery = `
+            SELECT id FROM project_members 
+            WHERE project_id = ? AND user_id = ?
+        `;
+        
+        db.query(memberCheckQuery, [projectId, user_id], (err, memberResults) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ error: 'Failed to check existing membership' });
+            }
+            
+            if (memberResults.length > 0) {
+                return res.status(400).json({ error: 'User is already a member of this project' });
+            }
+            
+            // Add the member
+            const insertQuery = `
+                INSERT INTO project_members (project_id, user_id, role, joined_at)
+                VALUES (?, ?, ?, NOW())
+            `;
+            
+            db.query(insertQuery, [projectId, user_id, role], (err, result) => {
+                if (err) {
+                    console.error('Database error:', err);
+                    return res.status(500).json({ error: 'Failed to add member to project' });
+                }
+                
+                // Get the added member's details for response
+                const getMemberQuery = `
+                    SELECT 
+                        pm.id,
+                        pm.role,
+                        pm.joined_at,
+                        u.id as user_id,
+                        u.full_name,
+                        u.email,
+                        u.role as user_role
+                    FROM project_members pm
+                    JOIN users u ON pm.user_id = u.id
+                    WHERE pm.id = ?
+                `;
+                
+                db.query(getMemberQuery, [result.insertId], (err, memberData) => {
+                    if (err) {
+                        console.error('Database error:', err);
+                        return res.status(201).json({ message: 'Member added successfully' });
+                    }
+                    
+                    res.status(201).json({
+                        message: 'Member added successfully',
+                        member: memberData[0]
+                    });
+                });
+            });
+        });
+    });
+});
+
 // Get user statistics (using view)
 app.get('/api/users/stats', authenticateToken, (req, res) => {
     if (!['admin', 'manager'].includes(req.user.role)) {
@@ -1611,7 +1772,7 @@ app.put('/api/tasks/:id/status', authenticateToken, (req, res) => {
     }
     
     // Check if user has permission to update this task
-    const checkQuery = 'SELECT * FROM tasks WHERE id = ? AND (assigned_to = ? OR created_by = ?)';
+    const checkQuery = 'SELECT * FROM tasks WHERE id = ? AND (assigned_to = ? OR assigned_by = ?)';
     db.query(checkQuery, [id, userId, userId], (err, tasks) => {
         if (err) {
             return res.status(500).json({ success: false, error: 'Database error' });
@@ -1741,6 +1902,113 @@ app.get('/api/analytics', authenticateToken, (req, res) => {
                     success: true, 
                     analytics: analytics 
                 });
+            });
+        });
+    });
+});
+
+// Advanced SQL examples as JSON APIs (for demo/testing of complex SQL)
+app.get('/api/reports/summary', authenticateToken, (req, res) => {
+    const sql = `
+        SELECT 
+          status,
+          COUNT(*) AS total,
+          SUM(status = 'completed') AS completed,
+          ROUND(SUM(status = 'completed') * 100 / NULLIF(COUNT(*), 0), 2) AS completion_rate
+        FROM tasks
+        GROUP BY status
+        ORDER BY FIELD(status,'urgent'), status`;
+    db.query(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.get('/api/reports/users-performance', authenticateToken, (req, res) => {
+    const sql = `
+        SELECT u.full_name,
+               COUNT(t.id) AS total,
+               SUM(t.status='completed') AS completed,
+               ROUND(SUM(t.status='completed')*100/NULLIF(COUNT(t.id),0),2) AS completion_rate,
+               ROUND(AVG(t.actual_hours),2) AS avg_actual_hours
+        FROM users u LEFT JOIN tasks t ON t.assigned_to=u.id
+        GROUP BY u.id
+        ORDER BY completion_rate DESC, total DESC`;
+    db.query(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.get('/api/reports/workload', authenticateToken, (req, res) => {
+    const sql = `
+        SELECT u.full_name, t.priority, COUNT(*) cnt
+        FROM users u JOIN tasks t ON t.assigned_to=u.id
+        GROUP BY u.id, t.priority
+        ORDER BY u.full_name, FIELD(t.priority,'urgent','high','medium','low')`;
+    db.query(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+// String functions demo (UPPER/LOWER/LTRIM/RTRIM/LEFT/RIGHT/SUBSTRING/CONCAT)
+app.get('/api/reports/strings', authenticateToken, (req, res) => {
+    const sql = `
+        SELECT 
+          u.id,
+          u.full_name,
+          UPPER(u.full_name) AS name_upper,
+          LOWER(u.full_name) AS name_lower,
+          LTRIM(RTRIM(u.username)) AS trimmed_username,
+          LENGTH(u.username) AS byte_length,
+          CHAR_LENGTH(u.username) AS char_length,
+          LEFT(u.email, 5) AS email_left5,
+          RIGHT(u.email, 8) AS email_right8,
+          SUBSTRING(u.email, 2, 5) AS email_mid,
+          CONCAT(u.full_name, ' <', u.email, '>') AS display
+        FROM users u
+        ORDER BY u.full_name`;
+    db.query(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+// Set operators demo (UNION/ALL and INTERSECT/MINUS emulations)
+app.get('/api/reports/setops', authenticateToken, (req, res) => {
+    const userId = parseInt(req.query.userId, 10) || req.user.id;
+    const unionSql = `(
+        SELECT id, title, 'assigned_to_me' AS src FROM tasks WHERE assigned_to = ?
+    )
+    UNION
+    (
+        SELECT id, title, 'created_by_me' AS src FROM tasks WHERE assigned_by = ?
+    )`;
+
+    const intersectSql = `
+        SELECT t1.id, t1.title
+        FROM tasks t1
+        WHERE t1.assigned_to = ?
+          AND EXISTS (
+            SELECT 1 FROM tasks t2 WHERE t2.assigned_by = ? AND t2.id = t1.id
+          )`;
+
+    const minusSql = `
+        SELECT t1.id, t1.title
+        FROM tasks t1
+        WHERE t1.assigned_to = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM tasks t2 WHERE t2.assigned_by = ? AND t2.id = t1.id
+          )`;
+
+    db.query(unionSql, [userId, userId], (e1, unionRows) => {
+        if (e1) return res.status(500).json({ error: 'Database error (union)' });
+        db.query(intersectSql, [userId, userId], (e2, interRows) => {
+            if (e2) return res.status(500).json({ error: 'Database error (intersect)' });
+            db.query(minusSql, [userId, userId], (e3, minusRows) => {
+                if (e3) return res.status(500).json({ error: 'Database error (minus)' });
+                res.json({ union: unionRows, intersect: interRows, minus: minusRows });
             });
         });
     });

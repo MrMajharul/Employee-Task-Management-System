@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Projects Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .project { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 8px; }
+        .project h3 { margin: 0 0 10px 0; color: #333; }
+        .project .meta { font-size: 14px; color: #666; }
+        .error { color: red; padding: 15px; background: #fee; border: 1px solid red; }
+        .success { color: green; padding: 15px; background: #efe; border: 1px solid green; }
+        button { padding: 10px 20px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        #status { margin: 20px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; }
+        #projectsList { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Projects API Test</h1>
+    <p>This page tests the /api/projects endpoint and verifies projects display correctly.</p>
+    
+    <div id="status">Not tested yet</div>
+    
+    <button onclick="testProjects()">Test Projects API</button>
+    <button onclick="loginAndTest()">Login as Admin & Test</button>
+    
+    <div id="projectsList"></div>
+
+    <script>
+        let authToken = null;
+
+        async function testProjects() {
+            const status = document.getElementById('status');
+            const projectsList = document.getElementById('projectsList');
+            
+            status.innerHTML = 'Testing...';
+            projectsList.innerHTML = '';
+            
+            try {
+                if (!authToken) {
+                    throw new Error('Not authenticated. Use "Login as Admin & Test" first.');
+                }
+                
+                const response = await fetch('/api/projects', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const projects = await response.json();
+                
+                status.innerHTML = `<div class="success">✓ Success! Found ${projects.length} projects</div>`;
+                
+                if (projects.length === 0) {
+                    projectsList.innerHTML = '<p>No projects found. Run the seed script first:</p><code>node scripts/seed-projects.js</code>';
+                    return;
+                }
+                
+                projectsList.innerHTML = '<h2>Projects:</h2>' + projects.map(project => `
+                    <div class="project">
+                        <h3>${project.name}</h3>
+                        <p>${project.description}</p>
+                        <div class="meta">
+                            <strong>Status:</strong> ${project.status} | 
+                            <strong>Priority:</strong> ${project.priority} | 
+                            <strong>Created by:</strong> ${project.created_by_name} | 
+                            <strong>Your role:</strong> ${project.user_role || 'None'} | 
+                            <strong>Tasks:</strong> ${project.task_count} | 
+                            <strong>Members:</strong> ${project.member_count} | 
+                            <strong>Progress:</strong> ${Math.round(project.avg_progress || 0)}%
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                status.innerHTML = `<div class="error">✗ Error: ${error.message}</div>`;
+                console.error(error);
+            }
+        }
+
+        async function loginAndTest() {
+            const status = document.getElementById('status');
+            
+            try {
+                status.innerHTML = 'Logging in...';
+                
+                const loginResponse = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'password' })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: HTTP ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                authToken = loginData.token;
+                
+                status.innerHTML = `Logged in as ${loginData.user.username}. Testing projects...`;
+                
+                await testProjects();
+                
+            } catch (error) {
+                status.innerHTML = `<div class="error">✗ Login Error: ${error.message}</div>`;
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>

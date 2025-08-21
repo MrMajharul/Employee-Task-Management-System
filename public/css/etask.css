@@ -4502,3 +4502,280 @@ input:checked + .toggle-slider:before {
     transform: translateX(4px);
 }
 
+/* Project Details Modal */
+.project-detail-modal {
+    max-width: 600px;
+    width: 90%;
+}
+
+.project-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-grow: 1;
+}
+
+.project-color-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary-blue);
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.project-header-info h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.project-header-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.project-detail-content {
+    padding: 0;
+}
+
+.project-detail-section {
+    margin-bottom: 24px;
+}
+
+.project-detail-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.project-detail-section p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.project-detail-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    background: var(--light-gray);
+    padding: 16px;
+    border-radius: 12px;
+    text-align: center;
+    flex: 1;
+    min-width: 120px;
+    border: 1px solid var(--border-color);
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.project-detail-dates {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    border-left: 4px solid var(--primary-blue);
+}
+
+.date-info {
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.date-info:last-child {
+    margin-bottom: 0;
+}
+
+.date-info strong {
+    color: var(--text-primary);
+    font-weight: 600;
+    min-width: 100px;
+    display: inline-block;
+}
+
+.project-detail-progress-bar {
+    margin-bottom: 20px;
+}
+
+.progress-bar-container {
+    background: #e9ecef;
+    border-radius: 10px;
+    height: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, var(--primary-blue), var(--secondary-blue));
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* Project card cursor pointer for clickable indication */
+.project-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.project-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Project Details Modal Actions */
+.project-detail-modal .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.project-detail-modal .modal-actions .btn-cancel {
+    margin-right: auto;
+}
+
+.project-detail-modal .modal-actions .btn-primary {
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.project-detail-modal .modal-actions .btn-primary:hover {
+    background: var(--dark-blue);
+}
+
+.project-detail-modal .modal-actions .btn-primary:disabled {
+    background: var(--medium-gray);
+    cursor: not-allowed;
+}
+
+#addTaskToProjectBtn {
+    background: var(--accent-green) !important;
+}
+
+#addTaskToProjectBtn:hover {
+    background: #5aa632 !important;
+}
+
+#addMemberToProjectBtn {
+    background: var(--secondary-blue) !important;
+}
+
+#addMemberToProjectBtn:hover {
+    background: var(--primary-blue) !important;
+}
+
+/* Add Member Modal */
+#addMemberModal .modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+#addMemberModal .form-group label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: block;
+}
+
+#addMemberModal select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+#addMemberModal select:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 2px rgba(47, 93, 163, 0.1);
+}
+
+/* Employee Sort Dropdown */
+.sort-container {
+    position: relative;
+}
+
+.sort-select {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    min-width: 140px;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 2px rgba(47, 93, 163, 0.1);
+}
+
+.sort-select:hover {
+    border-color: var(--primary-blue);
+}
+
+/* Employee Cards Enhancement */
+.employee-card {
+    transition: all 0.2s ease;
+}
+
+.employee-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+
